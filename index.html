@@ -104,15 +104,14 @@
 import datetime
 import math
 import js
-from pyodide.ffi import create_proxy
 from lunar_python import Lunar, Solar
 
-# --- 1. 常量定义 ---
+# --- 常量定义 ---
 STARS_FEI = ['天蓬', '天芮', '天冲', '天辅', '天禽', '天心', '天柱', '天任', '天英']
 GAN = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
 ZHI = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
 
-# --- 2. VSOP87 简化版 ---
+# --- VSOP87 简化版 ---
 class PreciseAstronomy:
     VSOP_L0 = [(175347046.0, 0, 0), (3341656.0, 4.6692568, 6283.07585), (34894.0, 4.6261, 12566.1517)]
     
@@ -136,7 +135,7 @@ class PreciseAstronomy:
     def calculate_dubhe_angle(solar_lon):
         return (solar_lon + 90.0) % 360.0
 
-# --- 3. 核心算法 ---
+# --- 核心算法引擎 ---
 class Engine:
     def __init__(self):
         self.TERM_NAMES = ['冬至','小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种','夏至','小暑','大暑','立秋','处暑','白露','秋分','寒露','霜降','立冬','小雪','大雪']
@@ -176,7 +175,7 @@ class Engine:
         is_yang = term_name in ['冬至','小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种']
         ju = self.JU_MAP.get(term_name, [1,1,1])[yuan_idx]
         
-        # 5. 排盘 (精简版)
+        # 5. 排盘 (精简版用于Web展示)
         real_yang = is_yang
         if lat < 0: real_yang = not real_yang 
         
@@ -208,7 +207,8 @@ class Engine:
 
 engine = Engine()
 
-# --- 4. JS 交互绑定 (关键修复) ---
+# --- 关键：将 Python 函数直接挂载到 JS 的 window 对象上 ---
+# 这样 JS 就能直接调用 window.python_entry() 了
 def python_entry(lat, lon):
     try:
         data = engine.get_info(float(lat), float(lon))
@@ -217,11 +217,8 @@ def python_entry(lat, lon):
         js.console.log(str(e))
         js.alert("计算出错: " + str(e))
 
-# 直接把 Python 函数挂载到浏览器窗口，避免复杂的调用
 js.window.python_entry = python_entry
-
-# 通知 JS 加载完毕
-js.init_complete()
+js.window.init_complete()
 </py-script>
 
 <script>
@@ -230,7 +227,7 @@ js.init_complete()
     let userLat = 30.0, userLon = 120.0;
     let pyReady = false;
 
-    // Python 加载完毕后会自动调用这个函数
+    // Python 准备好后会调用这个函数
     window.init_complete = function() {
         document.getElementById('loader').style.display = 'none';
         btn.innerText = "立即排盘";
@@ -239,6 +236,7 @@ js.init_complete()
         console.log("Python Engine Ready");
     }
 
+    // Python 算完后会调用这个函数显示结果
     window.render_result = function(jsonStr) {
         const data = JSON.parse(jsonStr);
         document.getElementById('result-area').style.display = 'block';
@@ -281,6 +279,7 @@ js.init_complete()
         });
     }
 
+    // 按钮点击事件
     window.run_calc = function() {
         if(!pyReady) return;
         
@@ -291,7 +290,7 @@ js.init_complete()
                     userLat = pos.coords.latitude;
                     userLon = pos.coords.longitude;
                     status.innerText = "定位成功";
-                    // 修复：直接调用挂载到 window 上的 Python 函数
+                    // 直接调用 Python 挂载好的函数
                     window.python_entry(userLat, userLon);
                 },
                 (err) => {
