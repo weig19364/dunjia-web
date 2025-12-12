@@ -111,15 +111,8 @@
 </div>
 
 <py-config>
-    packages = ["https://files.pythonhosted.org/packages/08/9d/2883398c1d53350257321683457a4441011400a424b94f475f4503728639/lunar_python-1.4.8-py3-none-any.whl"]
+    packages = ["./lunar_python-1.4.8-py3-none-any.whl"]
 </py-config>
-
-<py-script>
-import datetime
-import math
-import js
-from pyodide.ffi import create_proxy
-from lunar_python import Lunar, Solar
 
 # --- 1. 常量定义 ---
 STARS_FEI = ['天蓬', '天芮', '天冲', '天辅', '天禽', '天心', '天柱', '天任', '天英']
@@ -369,5 +362,4 @@ js.init_complete()
 </py-script>
 
 </body>
-
 </html>
