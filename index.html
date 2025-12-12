@@ -16,7 +16,6 @@
         .card { background: var(--panel); border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); border: 1px solid #334155; }
         .card-header { font-size: 0.9rem; color: #94a3b8; letter-spacing: 1px; margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 5px; display: flex; justify-content: space-between;}
         .btn { width: 100%; background: linear-gradient(135deg, #0ea5e9, #2563eb); border: none; color: white; padding: 15px; border-radius: 12px; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-bottom: 20px; box-shadow: 0 0 15px rgba(14, 165, 233, 0.3); }
-        .btn:active { transform: scale(0.98); }
         .btn:disabled { background: #475569; cursor: not-allowed; }
         .grid-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; aspect-ratio: 1/1; }
         .cell { background: #0f172a; border-radius: 8px; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 1px solid #334155; }
@@ -91,7 +90,7 @@
 
     <div id="loader" style="display:block;">
         <h3>正在初始化 Python 环境...</h3>
-        <p>首次加载可能需要 5-10 秒<br>正在加载天文数据和农历库</p>
+        <p>首次加载可能需要 5-10 秒<br>正在读取本地算法库...</p>
     </div>
     
     <button id="calc-btn" class="btn" onclick="run_calc()" disabled>等待引擎就绪...</button>
@@ -110,13 +109,11 @@ from lunar_python import Lunar, Solar
 
 # --- 1. 常量定义 ---
 STARS_FEI = ['天蓬', '天芮', '天冲', '天辅', '天禽', '天心', '天柱', '天任', '天英']
-DOORS_FEI = ['休门', '死门', '伤门', '杜门', '开门', '惊门', '生门', '景门']
 GAN = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
 ZHI = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
 
 # --- 2. VSOP87 简化版 ---
 class PreciseAstronomy:
-    # 简化系数，保留核心项确保运行
     VSOP_L0 = [(175347046.0, 0, 0), (3341656.0, 4.6692568, 6283.07585), (34894.0, 4.6261, 12566.1517)]
     
     @staticmethod
@@ -211,7 +208,8 @@ class Engine:
 
 engine = Engine()
 
-def calculate(lat, lon):
+# --- 4. JS 交互绑定 (关键修复) ---
+def python_entry(lat, lon):
     try:
         data = engine.get_info(float(lat), float(lon))
         js.render_result(js.JSON.stringify(data))
@@ -219,11 +217,10 @@ def calculate(lat, lon):
         js.console.log(str(e))
         js.alert("计算出错: " + str(e))
 
-# 暴露入口
-def python_entry(lat, lon):
-    calculate(lat, lon)
+# 直接把 Python 函数挂载到浏览器窗口，避免复杂的调用
+js.window.python_entry = python_entry
 
-# 初始化完成
+# 通知 JS 加载完毕
 js.init_complete()
 </py-script>
 
@@ -233,6 +230,7 @@ js.init_complete()
     let userLat = 30.0, userLon = 120.0;
     let pyReady = false;
 
+    // Python 加载完毕后会自动调用这个函数
     window.init_complete = function() {
         document.getElementById('loader').style.display = 'none';
         btn.innerText = "立即排盘";
@@ -285,6 +283,7 @@ js.init_complete()
 
     window.run_calc = function() {
         if(!pyReady) return;
+        
         if (navigator.geolocation) {
             status.innerText = "正在获取GPS...";
             navigator.geolocation.getCurrentPosition(
@@ -292,19 +291,17 @@ js.init_complete()
                     userLat = pos.coords.latitude;
                     userLon = pos.coords.longitude;
                     status.innerText = "定位成功";
-                    const entry = document.querySelector('py-script').interpreter.globals.get('python_entry');
-                    entry(userLat, userLon);
+                    // 修复：直接调用挂载到 window 上的 Python 函数
+                    window.python_entry(userLat, userLon);
                 },
                 (err) => {
                     status.innerText = "定位失败，使用默认(杭州)";
-                    const entry = document.querySelector('py-script').interpreter.globals.get('python_entry');
-                    entry(30.0, 120.0);
+                    window.python_entry(30.0, 120.0);
                 }
             );
         } else {
             alert("浏览器不支持定位");
-            const entry = document.querySelector('py-script').interpreter.globals.get('python_entry');
-            entry(30.0, 120.0);
+            window.python_entry(30.0, 120.0);
         }
     }
 </script>
