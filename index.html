@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>遁甲归一 V20 (UI修复+数据完整)</title>
+    <title>遁甲归一 V21 (正宗转盘八神版)</title>
     
     <link rel="stylesheet" href="https://pyscript.net/releases/2023.11.1/core.css" />
     <script type="module" src="https://pyscript.net/releases/2023.11.1/core.js"></script>
@@ -13,7 +13,6 @@
         body { background: var(--bg); color: var(--text); font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; margin: 0; padding: 10px; line-height: 1.4; }
         .app { max-width: 600px; margin: 0 auto; }
         
-        /* 控制区 */
         .controls { background: var(--panel); padding: 12px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 15px; }
         .input-group { display: flex; gap: 8px; margin-bottom: 10px; }
         input[type="datetime-local"] {
@@ -31,14 +30,11 @@
         }
         .btn:disabled { background: #475569; cursor: not-allowed; }
 
-        /* 信息卡片 */
         .card { background: var(--panel); border-radius: 8px; padding: 12px; margin-bottom: 8px; border: 1px solid #334155; }
         .info-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--gray); margin-bottom: 4px; }
-        .info-val { color: var(--text); font-weight: bold; }
         .highlight { color: var(--gold); }
         .accent { color: var(--accent); }
 
-        /* 九宫格核心样式 */
         .grid-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; aspect-ratio: 1/1; margin-top: 10px; }
         .cell { 
             background: #0f172a; border-radius: 4px; position: relative; border: 1px solid #334155; 
@@ -46,23 +42,12 @@
         }
         .cell.center { background: #1e293b; border: 1px solid #fbbf24; }
         
-        /* === 关键修正：宫内元素布局 === */
-        /* 1. 八神：顶部居中 (红色) */
+        /* 盘面布局 */
         .pos-god { position: absolute; top: 3px; left: 50%; transform: translateX(-50%); font-size: 0.8rem; color: var(--red); font-weight: bold; }
-        
-        /* 2. 九星：偏上居中 (蓝色) */
         .pos-star { position: absolute; top: 22px; left: 50%; transform: translateX(-50%); font-size: 0.85rem; color: var(--accent); }
-        
-        /* 3. 八门：偏下居中 (金色) */
         .pos-door { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); font-size: 0.95rem; font-weight: bold; color: var(--gold); }
-        
-        /* 4. 天盘干：右上角 (白色) */
         .pos-stem-t { position: absolute; top: 4px; right: 6px; font-size: 1rem; font-weight: bold; color: #fff; }
-        
-        /* 5. 地盘干：左下角 (灰色) - 你要求的修改 */
         .pos-stem-d { position: absolute; bottom: 4px; left: 6px; font-size: 1rem; font-weight: bold; color: #94a3b8; }
-        
-        /* 6. 宫位数字：右下角 (深灰) */
         .pos-num { position: absolute; bottom: 2px; right: 3px; font-size: 0.6rem; color: #334155; }
         
         #loader { text-align: center; color: var(--accent); margin: 20px; font-size: 0.9rem;}
@@ -73,7 +58,7 @@
 <div class="app">
     <div style="font-size:0.8rem; color:#94a3b8; margin-bottom:10px; display:flex; justify-content:space-between;">
         <span id="gps-status">定位中...</span>
-        <span>V20.Final</span>
+        <span>V21.ZhuanPan</span>
     </div>
 
     <div class="controls">
@@ -81,7 +66,7 @@
             <input type="datetime-local" id="datetime-input">
             <button class="icon-btn" onclick="setNow()" title="回到当前">↻</button>
         </div>
-        <button id="calc-btn" class="btn" onclick="run_calc()" disabled>正在初始化引擎...</button>
+        <button id="calc-btn" class="btn" onclick="run_calc()" disabled>正在初始化...</button>
     </div>
 
     <div id="result-area" style="display:none;">
@@ -137,8 +122,11 @@ GAN = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
 ZHI = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
 STARS = ['', '天蓬', '天芮', '天冲', '天辅', '天禽', '天心', '天柱', '天任', '天英'] 
 DOORS = ['', '休门', '死门', '伤门', '杜门', '', '开门', '惊门', '生门', '景门']
-GODS_YANG = ['值符', '螣蛇', '太阴', '六合', '勾陈', '太常', '朱雀', '九地', '九天']
-GODS_YIN  = ['值符', '螣蛇', '太阴', '六合', '白虎', '太常', '玄武', '九地', '九天']
+
+# --- 修正：标准转盘八神 (无太常) ---
+# 顺序：值符, 螣蛇, 太阴, 六合, 白虎, 玄武, 九地, 九天
+GODS = ['值符', '螣蛇', '太阴', '六合', '白虎', '玄武', '九地', '九天']
+
 TERM_NAMES = ['冬至','小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种','夏至','小暑','大暑','立秋','处暑','白露','秋分','寒露','霜降','立冬','小雪','大雪']
 
 JU_MAP = {
@@ -149,7 +137,6 @@ JU_MAP = {
 }
 
 # --- 2. 天文算法 (VSOP87) ---
-# 为了显示实时黄经，这里恢复 VSOP 算法
 class PreciseAstronomy:
     @staticmethod
     def get_lon(dt):
@@ -164,46 +151,32 @@ class PreciseAstronomy:
 
 class QimenEngine:
     def run(self, year, month, day, hour, minute, lat, lon):
-        # 1. 历法与节气 (LunarPython 负责高精度定局)
         solar = Solar.fromYmdHms(year, month, day, hour, minute, 0)
         lunar = solar.getLunar()
         gz = lunar.getEightChar()
         
-        # 使用 VSOP 算法计算黄经和北斗，用于前端展示
         dt_obj = datetime.datetime(year, month, day, hour, minute)
-        # 真太阳时修正
         doy = dt_obj.timetuple().tm_yday
         b = (2 * math.pi / 365.24) * (doy - 81)
         eot = 9.87 * math.sin(2*b) - 7.53 * math.cos(b) - 1.5 * math.sin(b)
         tst = dt_obj + datetime.timedelta(minutes=eot + (lon-120)*4)
         
-        slon = PreciseAstronomy.get_lon(tst) # 实时计算黄经
-        dubhe = (slon + 90.0) % 360.0        # 北斗斗杓
+        slon = PreciseAstronomy.get_lon(tst) 
+        dubhe = (slon + 90.0) % 360.0        
         
-        # 计算月将 (过中气换将)
-        # 简单算法：太阳过宫
-        # 雨水(330)后亥将，春分(0)后戌将...
-        # 公式: 12 - int((slon + 30) / 30) % 12 (对应地支索引)
-        # 注意: 这里的月将需要精确对应
-        # 太阳在亥宫(330-360) -> 寅将? 不对，是合。
-        # 月将 = 太阳所在宫位的六合。
-        # 太阳在亥(330-360, 雨水-春分) -> 月将为亥(登明)
         jiang_idx = (11 - int((slon + 30)/30)) % 12
         yue_jiang = ZHI[jiang_idx]
         
-        # 2. 定局 (拆补法)
         current_jieqi = lunar.getPrevJieQi(True) 
         term_name = current_jieqi.getName()
         
         day_gan_idx = GAN.index(gz.getDayGan())
-        # 计算日柱索引
         day_idx = -1
         for i in range(60):
             if GAN[i%10] == gz.getDayGan() and ZHI[i%12] == gz.getDayZhi():
                 day_idx = i
                 break
         
-        # 符头
         diff = day_gan_idx % 5
         futou_idx = (day_idx - diff) % 60
         futou_zhi = ZHI[futou_idx % 12]
@@ -217,7 +190,7 @@ class QimenEngine:
         is_yang = term_name in yang_terms
         real_yang = is_yang if lat >= 0 else not is_yang
 
-        # 3. 地盘
+        # 地盘
         stems = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙']
         dp = {} 
         for i, s in enumerate(stems):
@@ -225,7 +198,6 @@ class QimenEngine:
             if pos == 0: pos = 9
             dp[pos] = s
             
-        # 4. 值符值使
         h_gan = gz.getTimeGan()
         h_zhi = gz.getTimeZhi()
         h_zhi_idx = ZHI.index(h_zhi)
@@ -242,7 +214,6 @@ class QimenEngine:
         zhishi_door = DOORS[pos_xun] if pos_xun != 5 else "死门" 
         if pos_xun == 5: pos_xun = 2 
         
-        # 5. 排天盘 
         target_stem = h_gan
         if h_gan == '甲': target_stem = xun_gan
         
@@ -251,22 +222,27 @@ class QimenEngine:
             if s == target_stem: pos_sky_dest = p; break
             
         path = [1,8,3,4,9,2,7,6] 
-        
-        # 6. 构建完整数据
         full_grid = {}
         for i in range(1, 10):
             full_grid[i] = {"stem_d": dp.get(i, ""), "stem_t": "", "star": "", "door": "", "god": ""}
 
-        # 6.1 排八神 
-        gods = GODS_YANG if real_yang else GODS_YIN
+        # --- 修正：标准转盘八神排布 ---
+        # 1. 小值符永远跟随大值符（pos_sky_dest）
+        # 2. 阳遁顺时针，阴遁逆时针
         try: start_idx = path.index(pos_sky_dest)
         except: start_idx = 0 
+        
         for i in range(8):
             g_idx = i
-            p_idx = (start_idx + i) % 8 if real_yang else (start_idx - i) % 8
-            full_grid[path[p_idx]]["god"] = gods[g_idx]
+            # 阳遁顺布，阴遁逆布
+            if real_yang:
+                p_idx = (start_idx + i) % 8
+            else:
+                p_idx = (start_idx - i) % 8 # Python负数取模会自动处理正
+                
+            full_grid[path[p_idx]]["god"] = GODS[g_idx]
             
-        # 6.2 排天盘干 & 星
+        # 排星 & 天盘干
         target_star_name = zhifu_star
         if target_star_name == "天禽": target_star_name = "天芮" 
         base_stars = ["天蓬","天任","天冲","天辅","天英","天芮","天柱","天心"]
@@ -281,7 +257,7 @@ class QimenEngine:
             orig_p = { "天蓬":1, "天任":8, "天冲":3, "天辅":4, "天英":9, "天芮":2, "天柱":7, "天心":6 }.get(curr_star, 1)
             full_grid[curr_palace]["stem_t"] = dp.get(orig_p, "")
             
-        # 6.3 排八门 
+        # 排门
         step = (h_zhi_idx - head_zhi_idx) % 12
         try:
             door_start_palace = pos_xun 
@@ -300,7 +276,6 @@ class QimenEngine:
             curr_p = path[(dest_idx + i) % 8]
             full_grid[curr_p]["door"] = curr_door
 
-        # 7. 打包返回
         return json.dumps({
             "lunar": f"{gz.getYear()}年 {lunar.toString()}",
             "ganzhi": f"{gz.getYear()} {gz.getMonth()} {gz.getDay()} {gz.getTime()}",
@@ -389,7 +364,6 @@ js.window.init_complete()
                 if(g.star) cell.innerHTML += `<div class="pos-star">${g.star}</div>`;
                 if(g.door) cell.innerHTML += `<div class="pos-door">${g.door}</div>`;
                 if(g.stem_t) cell.innerHTML += `<div class="pos-stem-t">${g.stem_t}</div>`;
-                // 关键修正：地盘干在左下角
                 if(g.stem_d) cell.innerHTML += `<div class="pos-stem-d">${g.stem_d}</div>`;
             }
             grid.appendChild(cell);
