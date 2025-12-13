@@ -104,78 +104,71 @@
 import datetime
 import math
 import js
+import json
 from lunar_python import Lunar, Solar
 
-# --- 常量定义 ---
-STARS_FEI = ['天蓬', '天芮', '天冲', '天辅', '天禽', '天心', '天柱', '天任', '天英']
+# 1. Constants
 GAN = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
 ZHI = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
+TERM_NAMES = ['冬至','小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种','夏至','小暑','大暑','立秋','处暑','白露','秋分','寒露','霜降','立冬','小雪','大雪']
+JU_MAP = {'冬至':[1,7,4], '小寒':[2,8,5], '大寒':[3,9,6], '立春':[8,5,2], '雨水':[9,6,3], '惊蛰':[1,7,4], '春分':[3,9,6], '清明':[4,1,7], '谷雨':[5,2,8], '立夏':[4,1,7], '小满':[5,2,8], '芒种':[6,3,9], '夏至':[9,3,6], '小暑':[8,2,5], '大暑':[7,1,4], '立秋':[2,5,8], '处暑':[1,4,7], '白露':[9,3,6], '秋分':[7,1,4], '寒露':[6,9,3], '霜降':[5,8,2], '立冬':[6,9,3], '小雪':[5,8,2], '大雪':[4,7,1]}
 
-# --- VSOP87 简化版 ---
-class PreciseAstronomy:
-    VSOP_L0 = [(175347046.0, 0, 0), (3341656.0, 4.6692568, 6283.07585), (34894.0, 4.6261, 12566.1517)]
-    
-    @staticmethod
-    def julian_day(dt):
-        y, m, d = dt.year, dt.month, dt.day
-        h = dt.hour + dt.minute/60.0 + dt.second/3600.0
-        if m <= 2: y -= 1; m += 12
-        a = int(y / 100); b = 2 - a + int(a / 4)
-        return int(365.25 * (y + 4716)) + int(30.6001 * (m + 1)) + d + h/24.0 + b - 1524.5
+# 2. Astronomy
+def get_solar_lon(dt):
+    # Simplified VSOP87
+    y, m, d = dt.year, dt.month, dt.day
+    h = dt.hour + dt.minute/60.0 + dt.second/3600.0
+    if m <= 2: y -= 1; m += 12
+    a = int(y / 100); b = 2 - a + int(a / 4)
+    jd = int(365.25 * (y + 4716)) + int(30.6001 * (m + 1)) + d + h/24.0 + b - 1524.5
+    tau = (jd - 2451545.0) / 365250.0
+    L0 = 175347046.0 + 3341656.0 * math.cos(4.6692568 + 6283.07585 * tau)
+    L = (L0 * 1e-8 + math.radians(280.46646 + 36000.76983 * tau)) 
+    return (math.degrees(L) + 0.0) % 360.0
 
-    @classmethod
-    def calculate_solar_longitude(cls, dt):
-        jd = cls.julian_day(dt)
-        tau = (jd - 2451545.0) / 365250.0
-        L0 = 175347046.0 + 3341656.0 * math.cos(4.6692568 + 6283.07585 * tau)
-        L = (L0 * 1e-8 + math.radians(280.46646 + 36000.76983 * tau)) 
-        return (math.degrees(L) + 0.0) % 360.0
+def get_true_solar_time(dt, lon):
+    doy = dt.timetuple().tm_yday
+    b = (2 * math.pi / 365.24) * (doy - 81)
+    eot = 9.87 * math.sin(2*b) - 7.53 * math.cos(b) - 1.5 * math.sin(b)
+    tst = dt + datetime.timedelta(minutes=eot + (lon-120)*4)
+    return tst, eot
 
-    @staticmethod
-    def calculate_dubhe_angle(solar_lon):
-        return (solar_lon + 90.0) % 360.0
-
-# --- 核心算法引擎 ---
-class Engine:
-    def __init__(self):
-        self.TERM_NAMES = ['冬至','小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种','夏至','小暑','大暑','立秋','处暑','白露','秋分','寒露','霜降','立冬','小雪','大雪']
-        self.JU_MAP = {'冬至':[1,7,4], '小寒':[2,8,5], '大寒':[3,9,6], '立春':[8,5,2], '雨水':[9,6,3], '惊蛰':[1,7,4], '春分':[3,9,6], '清明':[4,1,7], '谷雨':[5,2,8], '立夏':[4,1,7], '小满':[5,2,8], '芒种':[6,3,9], '夏至':[9,3,6], '小暑':[8,2,5], '大暑':[7,1,4], '立秋':[2,5,8], '处暑':[1,4,7], '白露':[9,3,6], '秋分':[7,1,4], '寒露':[6,9,3], '霜降':[5,8,2], '立冬':[6,9,3], '小雪':[5,8,2], '大雪':[4,7,1]}
-
-    def get_info(self, lat, lon):
+# 3. Core Engine
+def calculate_dunjia(lat, lon):
+    try:
         now = datetime.datetime.now()
+        tst, eot = get_true_solar_time(now, lon)
+        slon = get_solar_lon(tst)
+        dubhe = (slon + 90.0) % 360.0
         
-        # 1. 真太阳时
-        doy = now.timetuple().tm_yday
-        b = (2 * math.pi / 365.24) * (doy - 81)
-        eot = 9.87 * math.sin(2*b) - 7.53 * math.cos(b) - 1.5 * math.sin(b)
-        tst = now + datetime.timedelta(minutes=eot + (lon-120)*4)
-        
-        # 2. 天文
-        slon = PreciseAstronomy.calculate_solar_longitude(tst)
-        dubhe = PreciseAstronomy.calculate_dubhe_angle(slon)
-        
-        # 3. 农历/干支
+        # Lunar / Ganzhi
         solar_obj = Solar.fromYmdHms(tst.year, tst.month, tst.day, tst.hour, tst.minute, tst.second)
         lunar = solar_obj.getLunar()
         gz = lunar.getEightChar()
         
-        # 4. 定局
+        # Ju
         term_idx = int(((slon - 270) % 360) // 15)
-        term_name = self.TERM_NAMES[term_idx]
+        term_name = TERM_NAMES[term_idx]
         
         base = datetime.datetime(2000, 1, 1)
         delta = (tst - base).days
         day_idx = (delta + 54) % 60
-        futou_idx = day_idx - (day_idx % 5)
-        futou_zhi = futou_idx % 12
-        yuan_name = "下元"; yuan_idx = 2
-        if futou_zhi in [0, 6, 3, 9]: yuan_idx=0; yuan_name="上元"
-        elif futou_zhi in [2, 8, 5, 11]: yuan_idx=1; yuan_name="中元"
+        futou_zhi = (day_idx - (day_idx % 5)) % 12
+        yuan_name = "下元"; 
+        if futou_zhi in [0, 6, 3, 9]: yuan_name="上元"
+        elif futou_zhi in [2, 8, 5, 11]: yuan_name="中元"
+        
+        # Determine Yuan index: Shang=0, Zhong=1, Xia=2
+        y_idx = 0
+        if yuan_name == "中元": y_idx = 1
+        elif yuan_name == "下元": y_idx = 2
+
+        ju_list = JU_MAP.get(term_name, [1,1,1])
+        ju = ju_list[y_idx]
         
         is_yang = term_name in ['冬至','小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种']
-        ju = self.JU_MAP.get(term_name, [1,1,1])[yuan_idx]
         
-        # 5. 排盘 (精简版用于Web展示)
+        # Simple Pan (just for display)
         real_yang = is_yang
         if lat < 0: real_yang = not real_yang 
         
@@ -184,8 +177,9 @@ class Engine:
         for i, s in enumerate(stems):
             pos = ((ju - 1 + i)%9)+1 if real_yang else ((ju - 1 - i)%9)+1
             dp[pos] = s
-            
-        return {
+
+        # Pack Data
+        data = {
             "lunar": f"{gz.getYear()}年 {lunar.toString()}",
             "ganzhi": f"{gz.getYear()} {gz.getMonth()} {gz.getDay()} {gz.getTime()}",
             "jieqi": f"{term_name} (黄经{slon:.1f}°)",
@@ -204,18 +198,15 @@ class Engine:
             },
             "grid": dp 
         }
-
-engine = Engine()
-
-# --- 关键：将 Python 函数直接挂载到 JS 的 window 对象上 ---
-# 这样 JS 就能直接调用 window.python_entry() 了
-def python_entry(lat, lon):
-    try:
-        data = engine.get_info(float(lat), float(lon))
-        js.render_result(js.JSON.stringify(data))
+        return json.dumps(data)
+        
     except Exception as e:
-        js.console.log(str(e))
-        js.alert("计算出错: " + str(e))
+        return json.dumps({"error": str(e)})
+
+# 4. Expose to JS
+def python_entry(lat, lon):
+    result_json = calculate_dunjia(float(lat), float(lon))
+    js.render_result(result_json)
 
 js.window.python_entry = python_entry
 js.window.init_complete()
@@ -223,87 +214,82 @@ js.window.init_complete()
 
 <script>
     const btn = document.getElementById('calc-btn');
-    const status = document.getElementById('gps-status');
-    let userLat = 30.0, userLon = 120.0;
     let pyReady = false;
 
-    // Python 准备好后会调用这个函数
     window.init_complete = function() {
         document.getElementById('loader').style.display = 'none';
         btn.innerText = "立即排盘";
         btn.disabled = false;
         pyReady = true;
-        console.log("Python Engine Ready");
+        console.log("Python Ready");
     }
 
-    // Python 算完后会调用这个函数显示结果
     window.render_result = function(jsonStr) {
-        const data = JSON.parse(jsonStr);
-        document.getElementById('result-area').style.display = 'block';
-        
-        document.getElementById('lunar-date').innerText = data.lunar;
-        document.getElementById('ganzhi').innerText = data.ganzhi;
-        document.getElementById('jieqi').innerText = data.jieqi;
-        document.getElementById('kongwang').innerText = data.kongwang;
-        
-        document.getElementById('solar-lon').innerText = data.physics.lon;
-        document.getElementById('dubhe-ang').innerText = data.physics.dubhe;
-        document.getElementById('eot').innerText = data.physics.eot;
-        document.getElementById('coords').innerText = data.physics.coords;
-        
-        document.getElementById('ju-name').innerText = data.ju.name;
-        document.getElementById('jiang').innerText = data.ju.jiang;
-        
-        const grid = document.getElementById('grid-container');
-        grid.innerHTML = '';
-        const mapOrder = [4, 9, 2, 3, 5, 7, 8, 1, 6]; 
-        
-        mapOrder.forEach(idx => {
-            const cell = document.createElement('div');
-            cell.className = 'cell';
-            if(idx === 5) cell.className += ' center';
+        console.log("Received from Python:", jsonStr); // Debug log
+        try {
+            const data = JSON.parse(jsonStr);
             
-            const num = document.createElement('div');
-            num.className = 'palace-num';
-            num.innerText = idx;
-            cell.appendChild(num);
-            
-            const stem = data.grid[idx.toString()]; 
-            if(stem) {
-                const sDiv = document.createElement('div');
-                sDiv.className = 'stem-bot';
-                sDiv.innerText = stem;
-                cell.appendChild(sDiv);
+            if (data.error) {
+                alert("Python Error: " + data.error);
+                return;
             }
-            grid.appendChild(cell);
-        });
+
+            document.getElementById('result-area').style.display = 'block';
+            
+            // Fill Data
+            document.getElementById('lunar-date').innerText = data.lunar;
+            document.getElementById('ganzhi').innerText = data.ganzhi;
+            document.getElementById('jieqi').innerText = data.jieqi;
+            document.getElementById('kongwang').innerText = data.kongwang;
+            
+            document.getElementById('solar-lon').innerText = data.physics.lon;
+            document.getElementById('dubhe-ang').innerText = data.physics.dubhe;
+            document.getElementById('eot').innerText = data.physics.eot;
+            document.getElementById('coords').innerText = data.physics.coords;
+            
+            document.getElementById('ju-name').innerText = data.ju.name;
+            document.getElementById('jiang').innerText = data.ju.jiang;
+            
+            // Fill Grid
+            const grid = document.getElementById('grid-container');
+            grid.innerHTML = '';
+            const mapOrder = [4, 9, 2, 3, 5, 7, 8, 1, 6]; 
+            mapOrder.forEach(idx => {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                if(idx === 5) cell.className += ' center';
+                
+                const num = document.createElement('div');
+                num.className = 'palace-num';
+                num.innerText = idx;
+                cell.appendChild(num);
+                
+                const stem = data.grid[idx.toString()]; 
+                if(stem) {
+                    const sDiv = document.createElement('div');
+                    sDiv.className = 'stem-bot';
+                    sDiv.innerText = stem;
+                    cell.appendChild(sDiv);
+                }
+                grid.appendChild(cell);
+            });
+            
+        } catch (e) {
+            alert("JS Error parsing data: " + e.message);
+        }
     }
 
-    // 按钮点击事件
     window.run_calc = function() {
         if(!pyReady) return;
-        
         if (navigator.geolocation) {
-            status.innerText = "正在获取GPS...";
             navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    userLat = pos.coords.latitude;
-                    userLon = pos.coords.longitude;
-                    status.innerText = "定位成功";
-                    // 直接调用 Python 挂载好的函数
-                    window.python_entry(userLat, userLon);
-                },
-                (err) => {
-                    status.innerText = "定位失败，使用默认(杭州)";
-                    window.python_entry(30.0, 120.0);
-                }
+                (pos) => window.python_entry(pos.coords.latitude, pos.coords.longitude),
+                (err) => window.python_entry(30.0, 120.0)
             );
         } else {
-            alert("浏览器不支持定位");
             window.python_entry(30.0, 120.0);
         }
     }
 </script>
-
 </body>
 </html>
