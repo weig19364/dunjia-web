@@ -2,63 +2,92 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>遁甲归一 V21 (正宗转盘八神版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>遁甲归一 V22 (移动端适配版)</title>
     
     <link rel="stylesheet" href="https://pyscript.net/releases/2023.11.1/core.css" />
     <script type="module" src="https://pyscript.net/releases/2023.11.1/core.js"></script>
 
     <style>
+        /* === 移动端核心适配样式 === */
         :root { --bg: #0f172a; --panel: #1e293b; --text: #e2e8f0; --accent: #38bdf8; --gold: #fbbf24; --red: #fca5a5; --gray: #94a3b8; }
-        body { background: var(--bg); color: var(--text); font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; margin: 0; padding: 10px; line-height: 1.4; }
-        .app { max-width: 600px; margin: 0 auto; }
         
-        .controls { background: var(--panel); padding: 12px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 15px; }
-        .input-group { display: flex; gap: 8px; margin-bottom: 10px; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body { 
+            background: var(--bg); color: var(--text); 
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; 
+            margin: 0; padding: 8px; /* 减小边距 */
+            line-height: 1.3; 
+            overflow-x: hidden; /* 防止横向滚动 */
+            padding-bottom: env(safe-area-inset-bottom); /* 适配全面屏底部 */
+        }
+        
+        .app { max-width: 100%; margin: 0 auto; }
+        
+        /* 控制栏：更加紧凑 */
+        .controls { background: var(--panel); padding: 10px; border-radius: 10px; border: 1px solid #334155; margin-bottom: 10px; }
+        .input-group { display: flex; gap: 6px; margin-bottom: 8px; }
+        
         input[type="datetime-local"] {
             flex: 1; background: #0f172a; border: 1px solid #475569; color: white; 
-            padding: 8px; border-radius: 6px; font-size: 0.95rem; font-family: inherit;
+            padding: 8px 4px; border-radius: 6px; font-size: 0.9rem; /* 字体改小 */
         }
+        
         .icon-btn {
             background: #334155; border: 1px solid #475569; color: white; border-radius: 6px;
-            width: 40px; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            width: 36px; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
         }
+        
         .btn { 
             width: 100%; background: linear-gradient(135deg, #0ea5e9, #2563eb); border: none; 
-            color: white; padding: 12px; border-radius: 8px; font-size: 1rem; font-weight: bold; 
+            color: white; padding: 10px; border-radius: 8px; font-size: 1rem; font-weight: bold; 
             cursor: pointer; 
         }
         .btn:disabled { background: #475569; cursor: not-allowed; }
 
-        .card { background: var(--panel); border-radius: 8px; padding: 12px; margin-bottom: 8px; border: 1px solid #334155; }
-        .info-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--gray); margin-bottom: 4px; }
+        /* 信息卡片：允许换行防止撑开 */
+        .card { background: var(--panel); border-radius: 8px; padding: 10px; margin-bottom: 8px; border: 1px solid #334155; }
+        .info-row { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--gray); margin-bottom: 4px; flex-wrap: wrap; }
         .highlight { color: var(--gold); }
         .accent { color: var(--accent); }
 
-        .grid-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; aspect-ratio: 1/1; margin-top: 10px; }
+        /* 九宫格：间距缩小 */
+        .grid-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; aspect-ratio: 1/1; margin-top: 8px; }
         .cell { 
             background: #0f172a; border-radius: 4px; position: relative; border: 1px solid #334155; 
-            height: 100%; box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+            height: 100%; box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
         }
         .cell.center { background: #1e293b; border: 1px solid #fbbf24; }
         
-        /* 盘面布局 */
-        .pos-god { position: absolute; top: 3px; left: 50%; transform: translateX(-50%); font-size: 0.8rem; color: var(--red); font-weight: bold; }
-        .pos-star { position: absolute; top: 22px; left: 50%; transform: translateX(-50%); font-size: 0.85rem; color: var(--accent); }
-        .pos-door { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); font-size: 0.95rem; font-weight: bold; color: var(--gold); }
-        .pos-stem-t { position: absolute; top: 4px; right: 6px; font-size: 1rem; font-weight: bold; color: #fff; }
-        .pos-stem-d { position: absolute; bottom: 4px; left: 6px; font-size: 1rem; font-weight: bold; color: #94a3b8; }
-        .pos-num { position: absolute; bottom: 2px; right: 3px; font-size: 0.6rem; color: #334155; }
+        /* === 盘面元素微调 (关键适配点) === */
+        /* 1. 八神：顶部居中 (字体缩小) */
+        .pos-god { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: var(--red); font-weight: bold; white-space: nowrap; }
         
-        #loader { text-align: center; color: var(--accent); margin: 20px; font-size: 0.9rem;}
+        /* 2. 九星：位置上移 */
+        .pos-star { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); font-size: 0.8rem; color: var(--accent); white-space: nowrap; }
+        
+        /* 3. 八门：位置下移 */
+        .pos-door { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); font-size: 0.9rem; font-weight: bold; color: var(--gold); white-space: nowrap; }
+        
+        /* 4. 天盘干：右上角 (更加紧凑) */
+        .pos-stem-t { position: absolute; top: 2px; right: 3px; font-size: 0.9rem; font-weight: bold; color: #fff; }
+        
+        /* 5. 地盘干：左下角 (更加紧凑) */
+        .pos-stem-d { position: absolute; bottom: 2px; left: 3px; font-size: 0.9rem; font-weight: bold; color: #94a3b8; }
+        
+        /* 6. 宫位数字：右下角 (极小) */
+        .pos-num { position: absolute; bottom: 1px; right: 2px; font-size: 0.5rem; color: #334155; opacity: 0.7; }
+        
+        #loader { text-align: center; color: var(--accent); margin: 20px; font-size: 0.8rem;}
     </style>
 </head>
 <body>
 
 <div class="app">
-    <div style="font-size:0.8rem; color:#94a3b8; margin-bottom:10px; display:flex; justify-content:space-between;">
+    <div style="font-size:0.75rem; color:#94a3b8; margin-bottom:8px; display:flex; justify-content:space-between;">
         <span id="gps-status">定位中...</span>
-        <span>V21.ZhuanPan</span>
+        <span>V22.Mobile</span>
     </div>
 
     <div class="controls">
@@ -70,10 +99,10 @@
     </div>
 
     <div id="result-area" style="display:none;">
-        <div class="card" style="text-align: center;">
-            <div style="font-size: 1.2rem; font-weight: bold; color: var(--gold); margin-bottom: 5px;" id="lunar-date">--</div>
-            <div style="font-size: 1rem; margin-bottom: 5px;" id="ganzhi">--</div>
-            <div style="font-size: 0.85rem; color: var(--gray);">
+        <div class="card" style="text-align: center; padding-bottom: 5px;">
+            <div style="font-size: 1.1rem; font-weight: bold; color: var(--gold); margin-bottom: 3px;" id="lunar-date">--</div>
+            <div style="font-size: 0.95rem; margin-bottom: 3px;" id="ganzhi">--</div>
+            <div style="font-size: 0.8rem; color: var(--gray);">
                 <span id="jieqi">--</span> | <span id="kongwang">--</span>
             </div>
         </div>
@@ -87,12 +116,12 @@
                 <span>真太阳时差: <span id="eot">--</span></span>
                 <span>坐标: <span id="coords">--</span></span>
             </div>
-            <div style="border-top: 1px solid #334155; margin: 8px 0;"></div>
-            <div class="info-row" style="font-size: 0.95rem;">
+            <div style="border-top: 1px solid #334155; margin: 6px 0;"></div>
+            <div class="info-row" style="font-size: 0.9rem;">
                 <span>局数: <span id="ju-name" class="highlight">--</span></span>
                 <span>月将: <span id="jiang" class="accent">--</span></span>
             </div>
-            <div class="info-row" style="font-size: 0.95rem;">
+            <div class="info-row" style="font-size: 0.9rem;">
                 <span>值符: <span id="zhifu" style="color:var(--red)">--</span></span>
                 <span>值使: <span id="zhishi" class="highlight">--</span></span>
             </div>
@@ -123,8 +152,7 @@ ZHI = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "�
 STARS = ['', '天蓬', '天芮', '天冲', '天辅', '天禽', '天心', '天柱', '天任', '天英'] 
 DOORS = ['', '休门', '死门', '伤门', '杜门', '', '开门', '惊门', '生门', '景门']
 
-# --- 修正：标准转盘八神 (无太常) ---
-# 顺序：值符, 螣蛇, 太阴, 六合, 白虎, 玄武, 九地, 九天
+# --- 正宗转盘八神 (无太常) ---
 GODS = ['值符', '螣蛇', '太阴', '六合', '白虎', '玄武', '九地', '九天']
 
 TERM_NAMES = ['冬至','小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种','夏至','小暑','大暑','立秋','处暑','白露','秋分','寒露','霜降','立冬','小雪','大雪']
@@ -136,7 +164,7 @@ JU_MAP = {
     '秋分':[7,1,4], '寒露':[6,9,3], '霜降':[5,8,2], '立冬':[6,9,3], '小雪':[5,8,2], '大雪':[4,7,1]
 }
 
-# --- 2. 天文算法 (VSOP87) ---
+# --- 2. 天文算法 ---
 class PreciseAstronomy:
     @staticmethod
     def get_lon(dt):
@@ -226,23 +254,16 @@ class QimenEngine:
         for i in range(1, 10):
             full_grid[i] = {"stem_d": dp.get(i, ""), "stem_t": "", "star": "", "door": "", "god": ""}
 
-        # --- 修正：标准转盘八神排布 ---
-        # 1. 小值符永远跟随大值符（pos_sky_dest）
-        # 2. 阳遁顺时针，阴遁逆时针
+        # 八神 (修正顺逆逻辑)
         try: start_idx = path.index(pos_sky_dest)
         except: start_idx = 0 
-        
         for i in range(8):
             g_idx = i
-            # 阳遁顺布，阴遁逆布
-            if real_yang:
-                p_idx = (start_idx + i) % 8
-            else:
-                p_idx = (start_idx - i) % 8 # Python负数取模会自动处理正
-                
+            if real_yang: p_idx = (start_idx + i) % 8
+            else: p_idx = (start_idx - i) % 8 
             full_grid[path[p_idx]]["god"] = GODS[g_idx]
             
-        # 排星 & 天盘干
+        # 星 & 干
         target_star_name = zhifu_star
         if target_star_name == "天禽": target_star_name = "天芮" 
         base_stars = ["天蓬","天任","天冲","天辅","天英","天芮","天柱","天心"]
@@ -257,7 +278,7 @@ class QimenEngine:
             orig_p = { "天蓬":1, "天任":8, "天冲":3, "天辅":4, "天英":9, "天芮":2, "天柱":7, "天心":6 }.get(curr_star, 1)
             full_grid[curr_palace]["stem_t"] = dp.get(orig_p, "")
             
-        # 排门
+        # 门
         step = (h_zhi_idx - head_zhi_idx) % 12
         try:
             door_start_palace = pos_xun 
