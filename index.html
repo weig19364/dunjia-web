@@ -263,7 +263,7 @@ class QimenEngine:
             else: p_idx = (start_idx - i) % 8 
             full_grid[path[p_idx]]["god"] = GODS[g_idx]
             
-        # 星 & 干
+        # 排星 & 天盘干
         target_star_name = zhifu_star
         if target_star_name == "天禽": target_star_name = "天芮" 
         base_stars = ["天蓬","天任","天冲","天辅","天英","天芮","天柱","天心"]
@@ -278,7 +278,7 @@ class QimenEngine:
             orig_p = { "天蓬":1, "天任":8, "天冲":3, "天辅":4, "天英":9, "天芮":2, "天柱":7, "天心":6 }.get(curr_star, 1)
             full_grid[curr_palace]["stem_t"] = dp.get(orig_p, "")
             
-        # 门
+        # 排门
         step = (h_zhi_idx - head_zhi_idx) % 12
         try:
             door_start_palace = pos_xun 
