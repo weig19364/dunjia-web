@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>遁甲归一 V33 (月将修正版)</title>
+    <title>遁甲归一 V34 (天文修正版)</title>
     
     <link rel="stylesheet" href="https://pyscript.net/releases/2023.05.1/pyscript.css" />
     <script defer src="https://pyscript.net/releases/2023.05.1/pyscript.js"></script>
@@ -58,7 +58,7 @@
 
 <div class="app">
     <div class="status-bar">
-        <span>V33.MoonGeneral</span>
+        <span>V34.AstroFix</span>
         <span id="system-status">Booting...</span>
     </div>
 
@@ -98,7 +98,7 @@
             </div>
             <div class="info-row" style="font-size: 0.8rem;">
                 <span>时差(EOT): <span id="eot" class="data-val">--</span></span>
-                <span style="font-size: 0.7rem; color:#475569">VSOP87</span>
+                <span style="font-size: 0.7rem; color:#475569">Meeus Algorithm</span>
             </div>
         </div>
 
@@ -148,6 +148,7 @@ async def init_engine():
 
 asyncio.ensure_future(init_engine())
 
+# --- 基础数据 ---
 GAN = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
 ZHI = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
 STARS = ['', '天蓬', '天芮', '天冲', '天辅', '天禽', '天心', '天柱', '天任', '天英'] 
@@ -158,14 +159,44 @@ JU_MAP = {'冬至':[1,7,4], '小寒':[2,8,5], '大寒':[3,9,6], '立春':[8,5,2]
 class PreciseAstronomy:
     @staticmethod
     def get_lon(dt):
+        """
+        使用 Meeus 天文算法计算太阳真黄经
+        """
+        # 1. 计算儒略日 (JD)
         y, m, d = dt.year, dt.month, dt.day
         h = dt.hour + dt.minute/60.0 + dt.second/3600.0
-        if m <= 2: y -= 1; m += 12
-        jd = int(365.25 * (y + 4716)) + int(30.6001 * (m + 1)) + d + h/24.0 + 2 - int(y/100) + int(int(y/100)/4) - 1524.5
-        tau = (jd - 2451545.0) / 365250.0
-        L0 = 175347046.0 + 3341656.0 * math.cos(4.6692568 + 6283.07585 * tau)
-        L = (L0 * 1e-8 + math.radians(280.46646 + 36000.76983 * tau)) 
-        return (math.degrees(L) + 0.0) % 360.0
+        
+        if m <= 2:
+            y -= 1
+            m += 12
+        
+        A = int(y / 100)
+        B = 2 - A + int(A / 4)
+        
+        JD = int(365.25 * (y + 4716)) + int(30.6001 * (m + 1)) + d + h / 24.0 + B - 1524.5
+        
+        # 2. 计算从 J2000.0 起算的世纪数 (T)
+        T = (JD - 2451545.0) / 36525.0
+        
+        # 3. 太阳几何平黄经 (L0)
+        L0 = 280.46646 + 36000.76983 * T + 0.0003032 * T**2
+        L0 = L0 % 360
+        
+        # 4. 太阳平近点角 (M)
+        M = 357.52911 + 35999.05029 * T - 0.0001537 * T**2
+        M_rad = math.radians(M)
+        
+        # 5. 太阳中心差 (C)
+        C = (1.914602 - 0.004817 * T - 0.000014 * T**2) * math.sin(M_rad) + \
+            (0.019993 - 0.000101 * T) * math.sin(2 * M_rad) + \
+            0.000289 * math.sin(3 * M_rad)
+            
+        # 6. 太阳真黄经 (True Longitude)
+        true_lon = L0 + C
+        
+        # 7. 修正光行差等微小误差 (简略修正，约-0.00569)
+        # 这里为了奇门精度，直接返回真黄经即可，通常不需要视黄经那么繁琐
+        return true_lon % 360.0
 
 class QimenEngine:
     def run(self, year, month, day, hour, minute, lat, lon):
@@ -175,13 +206,18 @@ class QimenEngine:
             b = (2 * math.pi / 365.24) * (doy - 81)
             eot = 9.87 * math.sin(2*b) - 7.53 * math.cos(b) - 1.5 * math.sin(b)
             tst = dt_obj + datetime.timedelta(minutes=eot + (lon-120)*4)
+            
             solar = Solar.fromYmdHms(tst.year, tst.month, tst.day, tst.hour, tst.minute, 0)
             lunar = solar.getLunar()
             gz = lunar.getEightChar()
+            
+            # 使用修正后的算法计算黄经
             slon = PreciseAstronomy.get_lon(tst) 
             dubhe = (slon + 90.0) % 360.0        
+            
             current_jieqi = lunar.getPrevJieQi(True) 
             term_name = current_jieqi.getName()
+            
             day_gan = gz.getDayGan()
             day_zhi = gz.getDayZhi()
             day_gan_idx = GAN.index(day_gan)
@@ -198,6 +234,7 @@ class QimenEngine:
             if term_name not in JU_MAP: term_name = '冬至'
             ju = JU_MAP.get(term_name, [1,1,1])[yuan]
             real_yang = term_name in ['冬至','小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种']
+            
             stems_order = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙']
             dp = {} 
             for i, s in enumerate(stems_order):
@@ -205,31 +242,37 @@ class QimenEngine:
                 if pos <= 0: pos += 9
                 if pos == 0: pos = 9
                 dp[pos] = s
+            
             h_gan = gz.getTimeGan()
             h_zhi = gz.getTimeZhi()
             h_zhi_idx = ZHI.index(h_zhi)
             head_zhi_idx = (h_zhi_idx - GAN.index(h_gan)) % 12 
             xun_map = {0:'戊', 10:'己', 8:'庚', 6:'辛', 4:'壬', 2:'癸'}
             xun_gan = xun_map.get(head_zhi_idx, '戊')
+            
             pos_xun = 1
             for p, s in dp.items():
                 if s == xun_gan: pos_xun = p; break
             zhifu_star = STARS[pos_xun] 
             zhishi_door = DOORS[pos_xun] if pos_xun != 5 else "死门" 
             if pos_xun == 5: pos_xun = 2 
+            
             target_stem = h_gan if h_gan != '甲' else xun_gan
             pos_sky_dest = 1 
             for p, s in dp.items():
                 if s == target_stem: pos_sky_dest = p; break
+                
             path = [1,8,3,4,9,2,7,6] 
             full_grid = {}
             for i in range(1, 10):
                 full_grid[i] = {"stem_d": dp.get(i, ""), "stem_t": "", "star": "", "door": "", "god": ""}
+            
             try: start_idx = path.index(pos_sky_dest)
             except: start_idx = 0 
             for i in range(8):
                 p_idx = (start_idx + i) % 8 if real_yang else (start_idx - i) % 8 
                 full_grid[path[p_idx]]["god"] = GODS[i]
+                
             target_star_name = "天芮" if zhifu_star == "天禽" else zhifu_star
             base_stars = ["天蓬","天任","天冲","天辅","天英","天芮","天柱","天心"]
             try: s_idx = base_stars.index(target_star_name)
@@ -246,6 +289,7 @@ class QimenEngine:
                     if stem_5: stem_on_sky = stem_on_sky + stem_5
                 full_grid[curr_palace]["stem_t"] = stem_on_sky
             full_grid[5]["stem_t"] = "" 
+            
             step = (h_zhi_idx - head_zhi_idx) % 12
             try:
                 raw_pos_xun = 1
@@ -265,13 +309,11 @@ class QimenEngine:
                 curr_p = path[(dest_idx + i) % 8]
                 full_grid[curr_p]["door"] = curr_door
 
-            # --- V33 修正：月将算法 ---
-            # 原理：月将即太阳躔次，过中气而换将。
-            # 黄经 270° (冬至) -> 丑将 (1)
-            # 黄经 0° (春分) -> 戌将 (10)
-            # 黄经 90° (夏至) -> 未将 (7)
-            # 算法：(10 - int(slon / 30)) % 12
-            # 这样确保了在冬至时刻(270度)切换为丑将，大寒时刻(300度)切换为子将。
+            # ----------------------------------------
+            # 【核心修正】月将 = 太阳躔次 = (10 - int(黄经/30))
+            # 255° (大雪) / 30 = 8.5 -> 8. 10-8=2 -> 寅将
+            # 270° (冬至) / 30 = 9.0 -> 9. 10-9=1 -> 丑将
+            # ----------------------------------------
             jiang_idx = (10 - int(slon / 30)) % 12
             
             return json.dumps({
