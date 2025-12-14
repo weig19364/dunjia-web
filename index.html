@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>遁甲归一 V24 (完整信息版)</title>
     
-    <link rel="stylesheet" href="https://pyscript.net/releases/2023.11.1/core.css" />
-    <script type="module" src="https://pyscript.net/releases/2023.11.1/core.js"></script>
+    <!-- PyScript CDN 使用 jsDelivr 镜像（国内访问友好）-->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pyscript@latest/dist/pyscript.css" />
+    <script type="module" src="https://cdn.jsdelivr.net/npm/pyscript@latest/dist/pyscript.js"></script>
 
     <style>
         :root { 
@@ -106,6 +107,11 @@
         .pos-num { position: absolute; bottom: 2px; right: 3px; font-size: 0.5rem; color: #334155; }
 
         #loader { text-align: center; color: var(--accent); margin-top: 20px; font-size: 0.8rem; opacity: 0.8;}
+        
+        .error-notice { 
+            background: #7f1d1d; color: #fca5a5; padding: 12px; 
+            border-radius: 6px; margin-bottom: 12px; font-size: 0.85rem;
+        }
     </style>
 </head>
 <body>
@@ -115,6 +121,8 @@
         <span id="gps-status">定位中...</span>
         <span>V24.FullInfo</span>
     </div>
+
+    <div id="error-container"></div>
 
     <div class="controls">
         <div class="input-group">
@@ -391,14 +399,14 @@ js.window.init_complete()
         
         // 渲染关键参数
         document.getElementById('solar-lon').innerText = data.info.lon;
-        document.getElementById('dubhe-ang').innerText = data.info.dubhe; // 修复：显示斗柄
+        document.getElementById('dubhe-ang').innerText = data.info.dubhe;
         document.getElementById('eot').innerText = data.info.eot;
         document.getElementById('coords').innerText = data.info.coords;
         
         document.getElementById('ju-name').innerText = data.ju.name;
         document.getElementById('zhifu').innerText = data.ju.zhifu;
         document.getElementById('zhishi').innerText = data.ju.zhishi;
-        document.getElementById('jiang').innerText = data.ju.jiang; // 修复：显示月将
+        document.getElementById('jiang').innerText = data.ju.jiang;
         
         const grid = document.getElementById('grid-container');
         grid.innerHTML = '';
@@ -417,7 +425,6 @@ js.window.init_complete()
                 if(g.stem_t) cell.innerHTML += `<div class="pos-stem-t">${g.stem_t}</div>`;
                 if(g.stem_d) cell.innerHTML += `<div class="pos-stem-d">${g.stem_d}</div>`;
             }
-            // 宫位数字放最后
             cell.innerHTML += `<div class="pos-num">${idx}</div>`;
             grid.appendChild(cell);
         });
@@ -435,13 +442,35 @@ js.window.init_complete()
                     window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), pos.coords.latitude, pos.coords.longitude);
                 },
                 (err) => {
-                    window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), 30.0, 120.0);
+                    // 当无法获取位置时，提示用户
+                    const errorDiv = document.getElementById('error-container');
+                    let errorMsg = '无法获取您的位置信息';
+                    if(err.code === 1) errorMsg = '请允许位置访问权限';
+                    else if(err.code === 2) errorMsg = '位置服务暂时不可用';
+                    else if(err.code === 3) errorMsg = '获取位置超时，使用默认坐标';
+                    errorDiv.innerHTML = `<div class="error-notice">⚠️ ${errorMsg}</div>`;
+                    // 使用默认坐标（北京）
+                    window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), 39.9042, 116.4074);
                 }
             );
         } else {
-            window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), 30.0, 120.0);
+            const errorDiv = document.getElementById('error-container');
+            errorDiv.innerHTML = '<div class="error-notice">⚠️ 您的浏览器不支持地理定位</div>';
+            window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), 39.9042, 116.4074);
         }
     }
+    
+    // 监控 PyScript 加载状态
+    const loaderTimeout = setTimeout(() => {
+        if(!pyReady) {
+            const errorDiv = document.getElementById('error-container');
+            errorDiv.innerHTML = '<div class="error-notice">⚠️ PyScript CDN 加载缓慢，请确保网络连接畅通或尝试使用VPN（仅限国内用户）</div>';
+        }
+    }, 8000);
+    
+    window.addEventListener('load', () => {
+        clearTimeout(loaderTimeout);
+    });
 </script>
 </body>
 </html>
