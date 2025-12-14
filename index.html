@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>遁甲归一 V26 (GitHub最终版)</title>
+    <title>遁甲归一 V27 (绝对路径版)</title>
     
-    <link rel="stylesheet" href="https://unpkg.com/pyscript@2023.05.1/dist/pyscript.css" />
-    <script defer src="https://unpkg.com/pyscript@2023.05.1/dist/pyscript.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pyscript@2023.05.1/dist/pyscript.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/pyscript@2023.05.1/dist/pyscript.js"></script>
 
     <style>
-        /* 【关键修复】强制隐藏 Python 代码块，防止出现满屏乱码 */
+        /* 强制隐藏代码块，防止乱码 */
         py-script, py-config { display: none !important; }
 
         :root { 
@@ -54,7 +54,7 @@
 
 <div class="app">
     <div class="status-bar">
-        <span>V26.GitHub_Final</span>
+        <span>V27.DirectLink</span>
         <span id="system-status">System Loading...</span>
     </div>
 
@@ -65,7 +65,7 @@
             <input type="datetime-local" id="datetime-input">
             <button class="icon-btn" onclick="setNow()" title="回到当前">↻</button>
         </div>
-        <button id="calc-btn" class="btn" onclick="run_calc()" disabled>正在读取天文算法库...</button>
+        <button id="calc-btn" class="btn" onclick="run_calc()" disabled>正在下载天文算法库...</button>
     </div>
 
     <div id="result-area" class="hidden">
@@ -105,13 +105,13 @@
 
     <div id="loader">
         <div class="spinner"></div>
-        <p>正在加载系统...</p>
-        <p style="font-size: 0.75rem; color: #64748b; margin-top:5px;">正在读取 lunar_python.whl 文件</p>
+        <p>正在连接 GitHub 仓库...</p>
+        <p style="font-size: 0.75rem; color: #64748b; margin-top:5px;">正在读取 lunar_python-1.4.8-py3-none-any.whl</p>
     </div>
 </div>
 
 <py-config>
-    packages = ["./lunar_python-1.4.8-py3-none-any.whl"]
+    packages = ["https://weig19364.github.io/dunjia-web/lunar_python-1.4.8-py3-none-any.whl"]
 </py-config>
 
 <py-script>
@@ -120,11 +120,11 @@ import math
 import js
 import json
 
-# 错误拦截：如果加载失败，弹窗提示
 try:
     from lunar_python import Lunar, Solar, JieQi
 except ImportError:
-    js.window.show_error("无法读取 .whl 文件。请确认文件名是否完全一致 (lunar_python-1.4.8-py3-none-any.whl)")
+    # 如果这里报错，说明绝对路径也没读取到，可能是GitHub还没部署好
+    js.window.show_error("文件下载失败。请稍等2分钟让GitHub更新部署，然后刷新页面。")
 
 # 基础常量
 GAN = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
@@ -355,7 +355,6 @@ js.window.init_complete()
     window.run_calc = function() {
         if(!pyReady) return;
         const dt = new Date(dateInput.value);
-        // 如果定位失败，默认北京
         const defaultLat = 39.9042, defaultLon = 116.4074;
 
         if (navigator.geolocation) {
@@ -363,7 +362,7 @@ js.window.init_complete()
             navigator.geolocation.getCurrentPosition(
                 (pos) => { btn.innerText = "立即排盘"; btn.disabled = false; window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), pos.coords.latitude, pos.coords.longitude); },
                 (err) => { 
-                    window.show_error("无法获取定位，已使用北京坐标。");
+                    window.show_error("定位失败，已使用默认坐标");
                     btn.innerText = "立即排盘"; btn.disabled = false;
                     window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), defaultLat, defaultLon);
                 }, { timeout: 5000 }
@@ -376,10 +375,10 @@ js.window.init_complete()
     // 超时检测
     setTimeout(() => {
         if(!pyReady) {
-            document.getElementById('system-status').innerText = "Initialing...";
-            // 如果8秒还没好，可能CDN慢，但不会乱码
+            document.getElementById('system-status').innerText = "Slow Network...";
+            // 不再弹窗报错，因为使用了jsDelivr通常很稳，慢只是网速问题
         }
-    }, 8000);
+    }, 10000);
 </script>
 </body>
 </html>
