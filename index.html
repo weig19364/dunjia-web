@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>遁甲归一 V30 (强制指定源)</title>
+    <title>遁甲归一 V33 (月将修正版)</title>
     
     <link rel="stylesheet" href="https://pyscript.net/releases/2023.05.1/pyscript.css" />
     <script defer src="https://pyscript.net/releases/2023.05.1/pyscript.js"></script>
@@ -46,13 +46,11 @@
         .pos-num { position: absolute; bottom: 2px; right: 2px; font-size: 0.6rem; color: #334155; opacity: 0.5; }
         
         #loader { text-align: center; color: var(--accent); margin-top: 30px; font-size: 0.9rem; padding: 20px;}
-        .spinner {
-            width: 40px; height: 40px; border: 4px solid #334155; border-top: 4px solid var(--accent);
-            border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px auto;
-        }
+        .spinner { width: 40px; height: 40px; border: 4px solid #334155; border-top: 4px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        .error-notice { background: rgba(220, 38, 38, 0.2); color: #fca5a5; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 0.85rem; border: 1px solid #ef4444; text-align: left; word-break: break-all;}
+        .error-notice { background: rgba(220, 38, 38, 0.2); color: #fca5a5; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 0.85rem; border: 1px solid #ef4444; }
+        .warning-notice { background: rgba(234, 179, 8, 0.2); color: #fde047; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 0.8rem; border: 1px solid #eab308; display: flex; align-items: center; gap: 8px;}
         .hidden { display: none; }
     </style>
 </head>
@@ -60,11 +58,12 @@
 
 <div class="app">
     <div class="status-bar">
-        <span>V30.ManualInstall</span>
+        <span>V33.MoonGeneral</span>
         <span id="system-status">Booting...</span>
     </div>
 
     <div id="error-container"></div>
+    <div id="warning-container"></div>
 
     <div class="controls">
         <div class="input-group">
@@ -111,10 +110,8 @@
 
     <div id="loader">
         <div class="spinner"></div>
-        <p style="font-weight:bold; color:#fff;">正在从您的 GitHub 加载算法库...</p>
-        <p style="font-size: 0.75rem; color: #94a3b8; margin-top:8px;" id="log-msg">
-            Step 1: 准备 Python 环境...
-        </p>
+        <p style="font-weight:bold; color:#fff;">正在读取本地算法库...</p>
+        <p style="font-size: 0.75rem; color: #94a3b8; margin-top:8px;" id="log-msg">Step 1: 启动...</p>
     </div>
 </div>
 
@@ -135,34 +132,22 @@ def log(msg):
 
 async def init_engine():
     try:
-        # 1. 强制安装您 GitHub 仓库里的文件
-        # 这比自动搜索可靠得多
-        file_url = "https://weig19364.github.io/dunjia-web/lunar_python-1.4.8-py3-none-any.whl"
-        
-        log(f"Step 2: 下载算法库...\n{file_url.split('/')[-1]}")
+        file_url = "./lunar_python-1.4.8-py3-none-any.whl"
+        log(f"Step 2: 加载文件 {file_url}...")
         await micropip.install(file_url)
         
-        log("Step 3: 导入天文模块...")
+        log("Step 3: 导入模块...")
         global Lunar, Solar, JieQi
         from lunar_python import Lunar, Solar, JieQi
         
-        log("Step 4: 系统就绪！")
+        log("Step 4: 就绪！")
         js.window.init_complete()
-        
     except Exception as e:
-        err_msg = str(e)
-        log("❌ 初始化失败")
-        if "404" in err_msg:
-            js.window.show_error(f"无法找到 whl 文件 (404)。\n\n原因：GitHub Pages 可能还未更新，或者文件名不匹配。\n请确认您的仓库中存在 'lunar_python-1.4.8-py3-none-any.whl'")
-        elif "Can't find a pure Python 3 Wheel" in err_msg:
-            js.window.show_error("文件格式校验失败。\n请检查 whl 文件是否损坏。")
-        else:
-            js.window.show_error(f"错误详情:\n{err_msg}")
+        log("❌ 加载失败")
+        js.window.show_error(f"本地文件加载失败: {str(e)}")
 
-# 启动异步初始化
 asyncio.ensure_future(init_engine())
 
-# --- 以下逻辑保持不变 ---
 GAN = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
 ZHI = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
 STARS = ['', '天蓬', '天芮', '天冲', '天辅', '天禽', '天心', '天柱', '天任', '天英'] 
@@ -190,17 +175,13 @@ class QimenEngine:
             b = (2 * math.pi / 365.24) * (doy - 81)
             eot = 9.87 * math.sin(2*b) - 7.53 * math.cos(b) - 1.5 * math.sin(b)
             tst = dt_obj + datetime.timedelta(minutes=eot + (lon-120)*4)
-            
             solar = Solar.fromYmdHms(tst.year, tst.month, tst.day, tst.hour, tst.minute, 0)
             lunar = solar.getLunar()
             gz = lunar.getEightChar()
-            
             slon = PreciseAstronomy.get_lon(tst) 
             dubhe = (slon + 90.0) % 360.0        
-            
             current_jieqi = lunar.getPrevJieQi(True) 
             term_name = current_jieqi.getName()
-            
             day_gan = gz.getDayGan()
             day_zhi = gz.getDayZhi()
             day_gan_idx = GAN.index(day_gan)
@@ -208,7 +189,6 @@ class QimenEngine:
             for i in range(60):
                 if GAN[i%10] == day_gan and ZHI[i%12] == day_zhi:
                     day_idx = i; break
-            
             diff = day_gan_idx % 5
             futou_idx = (day_idx - diff) % 60
             futou_zhi = ZHI[futou_idx % 12]
@@ -218,7 +198,6 @@ class QimenEngine:
             if term_name not in JU_MAP: term_name = '冬至'
             ju = JU_MAP.get(term_name, [1,1,1])[yuan]
             real_yang = term_name in ['冬至','小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种']
-
             stems_order = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙']
             dp = {} 
             for i, s in enumerate(stems_order):
@@ -226,37 +205,31 @@ class QimenEngine:
                 if pos <= 0: pos += 9
                 if pos == 0: pos = 9
                 dp[pos] = s
-                
             h_gan = gz.getTimeGan()
             h_zhi = gz.getTimeZhi()
             h_zhi_idx = ZHI.index(h_zhi)
             head_zhi_idx = (h_zhi_idx - GAN.index(h_gan)) % 12 
             xun_map = {0:'戊', 10:'己', 8:'庚', 6:'辛', 4:'壬', 2:'癸'}
             xun_gan = xun_map.get(head_zhi_idx, '戊')
-            
             pos_xun = 1
             for p, s in dp.items():
                 if s == xun_gan: pos_xun = p; break
             zhifu_star = STARS[pos_xun] 
             zhishi_door = DOORS[pos_xun] if pos_xun != 5 else "死门" 
             if pos_xun == 5: pos_xun = 2 
-            
             target_stem = h_gan if h_gan != '甲' else xun_gan
             pos_sky_dest = 1 
             for p, s in dp.items():
                 if s == target_stem: pos_sky_dest = p; break
-                
             path = [1,8,3,4,9,2,7,6] 
             full_grid = {}
             for i in range(1, 10):
                 full_grid[i] = {"stem_d": dp.get(i, ""), "stem_t": "", "star": "", "door": "", "god": ""}
-
             try: start_idx = path.index(pos_sky_dest)
             except: start_idx = 0 
             for i in range(8):
                 p_idx = (start_idx + i) % 8 if real_yang else (start_idx - i) % 8 
                 full_grid[path[p_idx]]["god"] = GODS[i]
-                
             target_star_name = "天芮" if zhifu_star == "天禽" else zhifu_star
             base_stars = ["天蓬","天任","天冲","天辅","天英","天芮","天柱","天心"]
             try: s_idx = base_stars.index(target_star_name)
@@ -273,7 +246,6 @@ class QimenEngine:
                     if stem_5: stem_on_sky = stem_on_sky + stem_5
                 full_grid[curr_palace]["stem_t"] = stem_on_sky
             full_grid[5]["stem_t"] = "" 
-
             step = (h_zhi_idx - head_zhi_idx) % 12
             try:
                 raw_pos_xun = 1
@@ -293,7 +265,15 @@ class QimenEngine:
                 curr_p = path[(dest_idx + i) % 8]
                 full_grid[curr_p]["door"] = curr_door
 
-            jiang_idx = (11 - int((slon + 30)/30)) % 12
+            # --- V33 修正：月将算法 ---
+            # 原理：月将即太阳躔次，过中气而换将。
+            # 黄经 270° (冬至) -> 丑将 (1)
+            # 黄经 0° (春分) -> 戌将 (10)
+            # 黄经 90° (夏至) -> 未将 (7)
+            # 算法：(10 - int(slon / 30)) % 12
+            # 这样确保了在冬至时刻(270度)切换为丑将，大寒时刻(300度)切换为子将。
+            jiang_idx = (10 - int(slon / 30)) % 12
+            
             return json.dumps({
                 "lunar": f"农历 {lunar.getMonthInChinese()}月{lunar.getDayInChinese()}",
                 "ganzhi": f"{gz.getYear()}年 {gz.getMonth()}月 {gz.getDay()}日 {gz.getTime()}时",
@@ -333,7 +313,7 @@ js.window.python_entry = python_entry
         btn.innerText = "立即排盘";
         btn.disabled = false;
         pyReady = true;
-        statusSpan.innerText = "System Ready";
+        statusSpan.innerText = "Ready";
         statusSpan.style.color = "#4ade80";
     }
 
@@ -343,6 +323,10 @@ js.window.python_entry = python_entry
         statusSpan.style.color = "#f87171";
     }
 
+    window.show_warning = function(msg) {
+        document.getElementById('warning-container').innerHTML = `<div class="warning-notice"><span>📍</span> ${msg}</div>`;
+    }
+
     window.render_result = function(jsonStr) {
         const data = JSON.parse(jsonStr);
         if(data.error) {
@@ -350,7 +334,7 @@ js.window.python_entry = python_entry
             return;
         }
         document.getElementById('result-area').classList.remove('hidden');
-        document.getElementById('error-container').innerHTML = '';
+        document.getElementById('error-container').innerHTML = ''; 
         
         document.getElementById('lunar-date').innerText = data.lunar;
         document.getElementById('ganzhi').innerText = data.ganzhi;
@@ -391,21 +375,29 @@ js.window.python_entry = python_entry
 
     window.run_calc = function() {
         if(!pyReady) return;
+        document.getElementById('warning-container').innerHTML = '';
+        
         const dt = new Date(dateInput.value);
         const defaultLat = 39.9042, defaultLon = 116.4074;
 
         if (navigator.geolocation) {
             btn.innerText = "定位中..."; btn.disabled = true;
             navigator.geolocation.getCurrentPosition(
-                (pos) => { btn.innerText = "立即排盘"; btn.disabled = false; window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), pos.coords.latitude, pos.coords.longitude); },
+                (pos) => { 
+                    btn.innerText = "立即排盘"; btn.disabled = false; 
+                    window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), pos.coords.latitude, pos.coords.longitude); 
+                },
                 (err) => { 
-                    window.show_error("定位失败，已使用默认坐标");
-                    btn.innerText = "立即排盘"; btn.disabled = false;
+                    console.warn("Location error:", err);
                     window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), defaultLat, defaultLon);
-                }, { timeout: 5000 }
+                    btn.innerText = "立即排盘"; btn.disabled = false;
+                    window.show_warning("定位超时，已使用默认坐标 (北京)");
+                }, 
+                { timeout: 5000 }
             );
         } else {
             window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), defaultLat, defaultLon);
+            window.show_warning("浏览器不支持定位，使用默认坐标");
         }
     }
 </script>
