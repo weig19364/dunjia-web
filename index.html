@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>遁甲归一 V27 (绝对路径版)</title>
+    <title>遁甲归一 V28 (强力诊断版)</title>
     
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pyscript@2023.05.1/dist/pyscript.css" />
-    <script defer src="https://cdn.jsdelivr.net/npm/pyscript@2023.05.1/dist/pyscript.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/pyscript@2023.05.1/dist/pyscript.css" />
+    <script defer src="https://unpkg.com/pyscript@2023.05.1/dist/pyscript.js"></script>
 
     <style>
-        /* 强制隐藏代码块，防止乱码 */
+        /* 隐藏代码块，防止乱码 */
         py-script, py-config { display: none !important; }
 
         :root { 
@@ -45,8 +45,12 @@
         .pos-stem-t { position: absolute; top: 4px; right: 4px; font-size: 1rem; font-weight: bold; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
         .pos-stem-d { position: absolute; bottom: 4px; left: 4px; font-size: 1rem; font-weight: bold; color: #94a3b8; }
         .pos-num { position: absolute; bottom: 2px; right: 2px; font-size: 0.6rem; color: #334155; opacity: 0.5; }
+        
         #loader { text-align: center; color: var(--accent); margin-top: 20px; font-size: 0.9rem; padding: 20px;}
-        .error-notice { background: rgba(127, 29, 29, 0.3); color: #fca5a5; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 0.85rem; border: 1px solid #7f1d1d; }
+        /* 进度日志样式 */
+        #loading-log { font-size: 0.75rem; color: #64748b; margin-top: 8px; min-height: 20px; }
+        
+        .error-notice { background: rgba(127, 29, 29, 0.5); color: #fca5a5; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 0.85rem; border: 1px solid #ef4444; word-break: break-all; }
         .hidden { display: none; }
     </style>
 </head>
@@ -54,8 +58,8 @@
 
 <div class="app">
     <div class="status-bar">
-        <span>V27.DirectLink</span>
-        <span id="system-status">System Loading...</span>
+        <span>V28.Diagnostic</span>
+        <span id="system-status">Booting...</span>
     </div>
 
     <div id="error-container"></div>
@@ -65,7 +69,7 @@
             <input type="datetime-local" id="datetime-input">
             <button class="icon-btn" onclick="setNow()" title="回到当前">↻</button>
         </div>
-        <button id="calc-btn" class="btn" onclick="run_calc()" disabled>正在下载天文算法库...</button>
+        <button id="calc-btn" class="btn" onclick="run_calc()" disabled>请等待系统加载...</button>
     </div>
 
     <div id="result-area" class="hidden">
@@ -105,28 +109,59 @@
 
     <div id="loader">
         <div class="spinner"></div>
-        <p>正在连接 GitHub 仓库...</p>
-        <p style="font-size: 0.75rem; color: #64748b; margin-top:5px;">正在读取 lunar_python-1.4.8-py3-none-any.whl</p>
+        <p style="font-weight:bold; margin-bottom:4px;">正在初始化引擎...</p>
+        <div id="loading-log">等待 PyScript 启动...</div>
     </div>
 </div>
 
 <py-config>
-    packages = ["https://weig19364.github.io/dunjia-web/lunar_python-1.4.8-py3-none-any.whl"]
+    packages = []
 </py-config>
 
 <py-script>
+import js
+import micropip
 import datetime
 import math
-import js
 import json
 
-try:
-    from lunar_python import Lunar, Solar, JieQi
-except ImportError:
-    # 如果这里报错，说明绝对路径也没读取到，可能是GitHub还没部署好
-    js.window.show_error("文件下载失败。请稍等2分钟让GitHub更新部署，然后刷新页面。")
+# 定义日志函数，把进度显示在屏幕上
+def log(msg):
+    js.document.getElementById('loading-log').innerText = msg
+    print(msg)
 
-# 基础常量
+async def init_system():
+    try:
+        log("Step 1: 正在连接 GitHub 仓库...")
+        # 直接指向你仓库里文件的绝对地址
+        whl_url = "https://weig19364.github.io/dunjia-web/lunar_python-1.4.8-py3-none-any.whl"
+        
+        log(f"Step 2: 正在下载算法库... (0%)")
+        # 手动安装，这样我们可以捕获错误
+        await micropip.install(whl_url)
+        
+        log("Step 3: 库安装成功，正在导入...")
+        global Lunar, Solar, JieQi
+        from lunar_python import Lunar, Solar, JieQi
+        
+        log("Step 4: 系统就绪！")
+        js.window.init_complete()
+        
+    except Exception as e:
+        error_msg = str(e)
+        log("❌ 加载失败")
+        if "404" in error_msg:
+            js.window.show_error(f"无法找到文件 (404)。\nGitHub 可能还没部署完成。\n请等待 1-2 分钟后刷新。\n\n尝试访问: {whl_url}")
+        elif "NetworkError" in error_msg:
+            js.window.show_error("网络连接失败。\n请检查您的网络连接。")
+        else:
+            js.window.show_error(f"发生未知错误:\n{error_msg}")
+
+# 启动初始化流程
+import asyncio
+asyncio.ensure_future(init_system())
+
+# --- 以下是计算核心逻辑 (保持不变) ---
 GAN = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
 ZHI = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
 STARS = ['', '天蓬', '天芮', '天冲', '天辅', '天禽', '天心', '天柱', '天任', '天英'] 
@@ -275,7 +310,6 @@ def python_entry(y, m, d, h, minute, lat, lon):
     res_str = engine.run(int(y), int(m), int(d), int(h), int(minute), float(lat), float(lon))
     js.render_result(res_str)
 js.window.python_entry = python_entry
-js.window.init_complete()
 </py-script>
 
 <script>
@@ -302,8 +336,10 @@ js.window.init_complete()
     }
 
     window.show_error = function(msg) {
-        document.getElementById('error-container').innerHTML = `<div class="error-notice">⚠️ ${msg}</div>`;
+        document.getElementById('error-container').innerHTML = `<div class="error-notice">⚠️ ${msg.replace(/\n/g, '<br>')}</div>`;
         document.getElementById('loader').style.display = 'none';
+        statusSpan.innerText = "Error";
+        statusSpan.style.color = "#f87171";
     }
 
     window.render_result = function(jsonStr) {
@@ -371,14 +407,6 @@ js.window.init_complete()
             window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), defaultLat, defaultLon);
         }
     }
-    
-    // 超时检测
-    setTimeout(() => {
-        if(!pyReady) {
-            document.getElementById('system-status').innerText = "Slow Network...";
-            // 不再弹窗报错，因为使用了jsDelivr通常很稳，慢只是网速问题
-        }
-    }, 10000);
 </script>
 </body>
 </html>
