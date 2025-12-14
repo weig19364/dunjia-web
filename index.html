@@ -3,124 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>遁甲归一 V24 (修复增强版)</title>
+    <title>遁甲归一 V25 (GitHub修复版)</title>
     
-    <link rel="stylesheet" href="https://pyscript.net/releases/2023.05.1/pyscript.css" />
-    <script defer src="https://pyscript.net/releases/2023.05.1/pyscript.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/pyscript@2023.05.1/dist/pyscript.css" />
+    <script defer src="https://unpkg.com/pyscript@2023.05.1/dist/pyscript.js"></script>
 
     <style>
+        /* 关键修改2：强制隐藏 Python 代码块，防止加载失败时代码“漏”出来 */
+        py-script, py-config { display: none !important; }
+
         :root { 
-            --bg: #0f172a; 
-            --panel: #1e293b; 
-            --text: #cbd5e1; 
-            --accent: #38bdf8; 
-            --gold: #f59e0b; 
-            --red: #f87171; 
-            --border: #334155;
+            --bg: #0f172a; --panel: #1e293b; --text: #cbd5e1; 
+            --accent: #38bdf8; --gold: #f59e0b; --red: #f87171; --border: #334155;
         }
-        
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        
         body { 
             background: var(--bg); color: var(--text); 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            margin: 0; padding: 10px; 
-            overflow-x: hidden;
-            display: flex; justify-content: center;
+            margin: 0; padding: 10px; overflow-x: hidden; display: flex; justify-content: center;
         }
-        
         .app { width: 100%; max-width: 400px; margin: 0 auto; padding-bottom: 20px;}
-        
-        /* 顶部状态 */
-        .status-bar { 
-            display: flex; justify-content: space-between; align-items: center;
-            font-size: 0.75rem; color: #64748b; margin-bottom: 8px; 
-            padding: 0 4px;
-        }
-
-        /* 控制区 */
-        .controls { 
-            background: var(--panel); padding: 12px; border-radius: 12px; 
-            border: 1px solid var(--border); margin-bottom: 12px; 
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
-        }
+        .status-bar { display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b; margin-bottom: 8px; padding: 0 4px; }
+        .controls { background: var(--panel); padding: 12px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }
         .input-group { display: flex; gap: 8px; margin-bottom: 10px; }
-        
-        input[type="datetime-local"] {
-            flex: 1; background: #0f172a; border: 1px solid #475569; color: #fff; 
-            padding: 8px 10px; border-radius: 8px; font-size: 0.95rem; outline: none;
-            font-family: inherit;
-        }
-        
-        .icon-btn {
-            background: #334155; border: 1px solid #475569; color: #fff; border-radius: 8px;
-            width: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-            font-size: 1.2rem; transition: background 0.2s;
-        }
-        .icon-btn:active { background: #475569; }
-        
-        .btn { 
-            width: 100%; background: linear-gradient(135deg, #0284c7, #2563eb); border: none; 
-            color: white; padding: 12px; border-radius: 8px; font-size: 1rem; font-weight: 600; 
-            cursor: pointer; letter-spacing: 1px; transition: opacity 0.2s;
-        }
+        input[type="datetime-local"] { flex: 1; background: #0f172a; border: 1px solid #475569; color: #fff; padding: 8px; border-radius: 8px; font-size: 0.95rem; outline: none; }
+        .icon-btn { background: #334155; border: 1px solid #475569; color: #fff; border-radius: 8px; width: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+        .btn { width: 100%; background: linear-gradient(135deg, #0284c7, #2563eb); border: none; color: white; padding: 12px; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
         .btn:disabled { background: #334155; color: #94a3b8; cursor: not-allowed; opacity: 0.7; }
-        .btn:active { opacity: 0.9; }
-
-        /* 信息卡片 */
-        .card { 
-            background: var(--panel); border-radius: 12px; padding: 12px 16px; 
-            margin-bottom: 10px; border: 1px solid var(--border); 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        /* 信息行布局 */
+        .card { background: var(--panel); border-radius: 12px; padding: 12px 16px; margin-bottom: 10px; border: 1px solid var(--border); }
         .info-row { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; align-items: center;}
-        
         .highlight { color: var(--gold); font-weight: bold; }
         .accent { color: var(--accent); font-weight: bold; }
         .red-text { color: var(--red); font-weight: bold; }
-        .data-val { color: #fff; font-family: 'Courier New', monospace; font-size: 0.85rem;}
-
-        /* 九宫格 */
-        .grid-box { 
-            display: grid; grid-template-columns: repeat(3, 1fr); 
-            gap: 2px; 
-            background: var(--border);
-            border: 2px solid var(--border);
-            border-radius: 6px;
-            overflow: hidden;
-            margin-top: 10px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-            aspect-ratio: 1/1;
-        }
-        
-        .cell { 
-            background: #0f172a; 
-            position: relative; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-        }
+        .data-val { color: #fff; font-family: monospace; font-size: 0.85rem;}
+        .grid-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; background: var(--border); border: 2px solid var(--border); border-radius: 6px; overflow: hidden; margin-top: 10px; aspect-ratio: 1/1; }
+        .cell { background: #0f172a; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .cell.center { background: #172033; }
-
-        /* 盘面元素位置微调 */
         .pos-god { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); font-size: 0.7rem; color: var(--red); }
         .pos-star { position: absolute; top: 25%; left: 50%; transform: translateX(-50%); font-size: 0.85rem; color: var(--accent); font-weight: 500;}
         .pos-door { position: absolute; bottom: 25%; left: 50%; transform: translateX(-50%); font-size: 0.9rem; color: var(--gold); font-weight: bold; }
-        
-        /* 天盘干 */
         .pos-stem-t { position: absolute; top: 4px; right: 4px; font-size: 1rem; font-weight: bold; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
-        /* 地盘干 */
         .pos-stem-d { position: absolute; bottom: 4px; left: 4px; font-size: 1rem; font-weight: bold; color: #94a3b8; }
-        /* 宫位数字 */
         .pos-num { position: absolute; bottom: 2px; right: 2px; font-size: 0.6rem; color: #334155; opacity: 0.5; }
-
         #loader { text-align: center; color: var(--accent); margin-top: 20px; font-size: 0.9rem; padding: 20px;}
-        
-        .error-notice { 
-            background: rgba(127, 29, 29, 0.3); color: #fca5a5; padding: 12px; 
-            border-radius: 8px; margin-bottom: 12px; font-size: 0.85rem; border: 1px solid #7f1d1d;
-        }
-
-        /* 打印/隐藏 */
+        .error-notice { background: rgba(127, 29, 29, 0.3); color: #fca5a5; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 0.85rem; border: 1px solid #7f1d1d; }
         .hidden { display: none; }
     </style>
 </head>
@@ -128,8 +54,8 @@
 
 <div class="app">
     <div class="status-bar">
-        <span>V24.Fixed</span>
-        <span id="system-status">System Initializing...</span>
+        <span>V25.GitHub</span>
+        <span id="system-status">Checking Environment...</span>
     </div>
 
     <div id="error-container"></div>
@@ -139,7 +65,7 @@
             <input type="datetime-local" id="datetime-input">
             <button class="icon-btn" onclick="setNow()" title="回到当前">↻</button>
         </div>
-        <button id="calc-btn" class="btn" onclick="run_calc()" disabled>正在加载算法引擎...</button>
+        <button id="calc-btn" class="btn" onclick="run_calc()" disabled>正在初始化算法...</button>
     </div>
 
     <div id="result-area" class="hidden">
@@ -160,21 +86,18 @@
                 <span>值符: <span id="zhifu" class="red-text">--</span></span>
                 <span>值使: <span id="zhishi" class="highlight">--</span></span>
             </div>
-            
             <div style="border-top: 1px solid #334155; margin: 8px 0; opacity: 0.3;"></div>
-            
             <div class="info-row" style="font-size: 0.8rem;">
                 <span>真黄经: <span id="solar-lon" class="data-val">--</span></span>
                 <span>斗柄: <span id="dubhe-ang" class="data-val">--</span></span>
             </div>
             <div class="info-row" style="font-size: 0.8rem;">
                 <span>时差(EOT): <span id="eot" class="data-val">--</span></span>
-                <span style="font-size: 0.7rem; color:#475569">VSOP87-Lite</span>
+                <span style="font-size: 0.7rem; color:#475569">VSOP87</span>
             </div>
         </div>
 
         <div class="grid-box" id="grid-container"></div>
-        
         <div style="text-align: center; font-size: 0.7rem; color: #475569; margin-top: 12px;">
             <span id="coords">--</span>
         </div>
@@ -182,13 +105,13 @@
 
     <div id="loader">
         <div class="spinner"></div>
-        <p>正在从 PyPI 下载天文算法库...</p>
-        <p style="font-size: 0.75rem; color: #64748b; margin-top:5px;">首次加载可能需要 10 秒</p>
+        <p>正在加载系统...</p>
+        <p style="font-size: 0.75rem; color: #64748b; margin-top:5px;">如长时间卡住，请刷新页面</p>
     </div>
 </div>
 
 <py-config>
-    packages = ["lunar-python"]
+    packages = ["./lunar_python-1.4.8-py3-none-any.whl"]
 </py-config>
 
 <py-script>
@@ -196,29 +119,25 @@ import datetime
 import math
 import js
 import json
-# 引入 lunar_python 库
-from lunar_python import Lunar, Solar, JieQi
 
-# --- 1. 基础数据常量 ---
+# 错误捕捉：确保如果库加载失败，给出明确提示而不是崩坏
+try:
+    from lunar_python import Lunar, Solar, JieQi
+except ImportError:
+    js.console.error("Critical: Lunar-Python wheel failed to load.")
+    js.window.show_error("算法库加载失败。请确保 lunar_python...whl 文件在仓库中且路径正确。")
+
+# 基础常量
 GAN = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
 ZHI = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
 STARS = ['', '天蓬', '天芮', '天冲', '天辅', '天禽', '天心', '天柱', '天任', '天英'] 
 DOORS = ['', '休门', '死门', '伤门', '杜门', '', '开门', '惊门', '生门', '景门']
 GODS = ['值符', '螣蛇', '太阴', '六合', '白虎', '玄武', '九地', '九天']
+JU_MAP = {'冬至':[1,7,4], '小寒':[2,8,5], '大寒':[3,9,6], '立春':[8,5,2], '雨水':[9,6,3], '惊蛰':[1,7,4], '春分':[3,9,6], '清明':[4,1,7], '谷雨':[5,2,8], '立夏':[4,1,7], '小满':[5,2,8], '芒种':[6,3,9], '夏至':[9,3,6], '小暑':[8,2,5], '大暑':[7,1,4], '立秋':[2,5,8], '处暑':[1,4,7], '白露':[9,3,6], '秋分':[7,1,4], '寒露':[6,9,3], '霜降':[5,8,2], '立冬':[6,9,3], '小雪':[5,8,2], '大雪':[4,7,1]}
 
-# 简单的节气局数映射 (拆补法)
-JU_MAP = {
-    '冬至':[1,7,4], '小寒':[2,8,5], '大寒':[3,9,6], '立春':[8,5,2], '雨水':[9,6,3], '惊蛰':[1,7,4], 
-    '春分':[3,9,6], '清明':[4,1,7], '谷雨':[5,2,8], '立夏':[4,1,7], '小满':[5,2,8], '芒种':[6,3,9], 
-    '夏至':[9,3,6], '小暑':[8,2,5], '大暑':[7,1,4], '立秋':[2,5,8], '处暑':[1,4,7], '白露':[9,3,6], 
-    '秋分':[7,1,4], '寒露':[6,9,3], '霜降':[5,8,2], '立冬':[6,9,3], '小雪':[5,8,2], '大雪':[4,7,1]
-}
-
-# --- 2. 简易天文算法 (模拟 VSOP87 结果) ---
 class PreciseAstronomy:
     @staticmethod
     def get_lon(dt):
-        # 简化版太阳黄经计算，用于演示
         y, m, d = dt.year, dt.month, dt.day
         h = dt.hour + dt.minute/60.0 + dt.second/3600.0
         if m <= 2: y -= 1; m += 12
@@ -231,19 +150,12 @@ class PreciseAstronomy:
 class QimenEngine:
     def run(self, year, month, day, hour, minute, lat, lon):
         try:
-            # 1. 初始时间处理
             dt_obj = datetime.datetime(year, month, day, hour, minute)
-            
-            # 真太阳时校正 (EOT)
             doy = dt_obj.timetuple().tm_yday
             b = (2 * math.pi / 365.24) * (doy - 81)
             eot = 9.87 * math.sin(2*b) - 7.53 * math.cos(b) - 1.5 * math.sin(b)
-            # 经度校正: (lon - 120) * 4 分钟
-            lon_diff_min = (lon - 120) * 4
-            total_offset_min = eot + lon_diff_min
-            tst = dt_obj + datetime.timedelta(minutes=total_offset_min)
+            tst = dt_obj + datetime.timedelta(minutes=eot + (lon-120)*4)
             
-            # 使用真太阳时创建 Lunar 对象
             solar = Solar.fromYmdHms(tst.year, tst.month, tst.day, tst.hour, tst.minute, 0)
             lunar = solar.getLunar()
             gz = lunar.getEightChar()
@@ -251,209 +163,118 @@ class QimenEngine:
             slon = PreciseAstronomy.get_lon(tst) 
             dubhe = (slon + 90.0) % 360.0        
             
-            # 2. 定局 (拆补法)
-            # 获取当前时刻所属的节气
             current_jieqi = lunar.getPrevJieQi(True) 
             term_name = current_jieqi.getName()
             
-            # 计算符头
             day_gan = gz.getDayGan()
             day_zhi = gz.getDayZhi()
             day_gan_idx = GAN.index(day_gan)
-            day_zhi_idx = ZHI.index(day_zhi)
-            
-            # 60甲子序数
             day_idx = -1
             for i in range(60):
                 if GAN[i%10] == day_gan and ZHI[i%12] == day_zhi:
-                    day_idx = i
-                    break
+                    day_idx = i; break
             
-            # 符头索引 = 日干序数 - (日干序数 % 5) -> 这里的逻辑是 符头 = 日干 - (日干%5) 是不对的
-            # 正确符头计算：甲己为符头。日干序数 0(甲)..9(癸)。
-            # 符头距离 = day_gan_idx % 5. 
-            # 比如 甲(0)%5=0, 乙(1)%5=1. 
             diff = day_gan_idx % 5
             futou_idx = (day_idx - diff) % 60
             futou_zhi = ZHI[futou_idx % 12]
-            
-            yuan = 2 # 默认下元
-            if futou_zhi in ['子', '午', '卯', '酉']: yuan = 0 # 上元
-            elif futou_zhi in ['寅', '申', '巳', '亥']: yuan = 1 # 中元
-            
-            if term_name not in JU_MAP: term_name = '冬至' # Fallback
+            yuan = 2
+            if futou_zhi in ['子', '午', '卯', '酉']: yuan = 0
+            elif futou_zhi in ['寅', '申', '巳', '亥']: yuan = 1
+            if term_name not in JU_MAP: term_name = '冬至'
             ju = JU_MAP.get(term_name, [1,1,1])[yuan]
-            
-            yang_terms = ['冬至','小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种']
-            is_yang = term_name in yang_terms
-            
-            # 简单的阴阳遁判断（未考虑超接置闰，仅拆补）
-            real_yang = is_yang 
+            real_yang = term_name in ['冬至','小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种']
 
-            # 3. 排地盘
-            # 戊 己 庚 辛 壬 癸 丁 丙 乙 (六仪三奇)
             stems_order = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙']
             dp = {} 
             for i, s in enumerate(stems_order):
-                if real_yang:
-                    pos = ((ju - 1 + i) % 9) + 1
-                else:
-                    pos = ((ju - 1 - i) % 9) + 1
-                    if pos <= 0: pos += 9
+                pos = ((ju - 1 + i) % 9) + 1 if real_yang else ((ju - 1 - i) % 9) + 1
+                if pos <= 0: pos += 9
                 if pos == 0: pos = 9
                 dp[pos] = s
                 
-            # 4. 找旬首
             h_gan = gz.getTimeGan()
             h_zhi = gz.getTimeZhi()
             h_zhi_idx = ZHI.index(h_zhi)
-            g_i = GAN.index(h_gan)
-            # 旬首地支索引
-            head_zhi_idx = (h_zhi_idx - g_i) % 12 
+            head_zhi_idx = (h_zhi_idx - GAN.index(h_gan)) % 12 
             xun_map = {0:'戊', 10:'己', 8:'庚', 6:'辛', 4:'壬', 2:'癸'}
-            xun_gan = xun_map.get(head_zhi_idx, '戊') # 此时的六仪
+            xun_gan = xun_map.get(head_zhi_idx, '戊')
             
-            # 旬首落宫
             pos_xun = 1
             for p, s in dp.items():
                 if s == xun_gan: pos_xun = p; break
-                
             zhifu_star = STARS[pos_xun] 
             zhishi_door = DOORS[pos_xun] if pos_xun != 5 else "死门" 
-            
-            # 如果旬首在中5宫，值符寄坤2宫
             if pos_xun == 5: pos_xun = 2 
             
-            # 5. 排天盘 (值符随时干)
-            target_stem = h_gan
-            if h_gan == '甲': target_stem = xun_gan
-            
-            # 查找地盘上时干的位置（即值符要去的位置）
+            target_stem = h_gan if h_gan != '甲' else xun_gan
             pos_sky_dest = 1 
             for p, s in dp.items():
                 if s == target_stem: pos_sky_dest = p; break
                 
-            path = [1,8,3,4,9,2,7,6] # 顺时针宫位顺序
+            path = [1,8,3,4,9,2,7,6] 
             full_grid = {}
             for i in range(1, 10):
                 full_grid[i] = {"stem_d": dp.get(i, ""), "stem_t": "", "star": "", "door": "", "god": ""}
 
-            # --- 排八神 ---
-            # 小值符(八神之首)落 pos_sky_dest
             try: start_idx = path.index(pos_sky_dest)
             except: start_idx = 0 
-            
             for i in range(8):
-                g_idx = i
-                # 阳遁顺排，阴遁逆排
-                if real_yang: p_idx = (start_idx + i) % 8
-                else: p_idx = (start_idx - i) % 8 
-                full_grid[path[p_idx]]["god"] = GODS[g_idx]
+                p_idx = (start_idx + i) % 8 if real_yang else (start_idx - i) % 8 
+                full_grid[path[p_idx]]["god"] = GODS[i]
                 
-            # --- 排九星 & 天盘干 ---
-            # 原值符星 (zhifu_star) 落 pos_sky_dest
-            target_star_name = zhifu_star
-            # 禽星特殊处理：如果值符是天禽，通常随天芮走
-            if target_star_name == "天禽": target_star_name = "天芮" 
-            
+            target_star_name = "天芮" if zhifu_star == "天禽" else zhifu_star
             base_stars = ["天蓬","天任","天冲","天辅","天英","天芮","天柱","天心"]
             try: s_idx = base_stars.index(target_star_name)
             except: s_idx = 0
-            
             for i in range(8):
                 curr_star = base_stars[(s_idx + i) % 8]
-                curr_palace = path[(start_idx + i) % 8] # 九星永远顺飞
-                
+                curr_palace = path[(start_idx + i) % 8]
                 full_grid[curr_palace]["star"] = curr_star
                 if curr_star == "天芮": full_grid[curr_palace]["star"] = "天芮(禽)"
-                
-                # 找该星原始宫位，取其地盘干翻到天盘
                 orig_p = { "天蓬":1, "天任":8, "天冲":3, "天辅":4, "天英":9, "天芮":2, "天柱":7, "天心":6 }.get(curr_star, 1)
-                
                 stem_on_sky = dp.get(orig_p, "")
-                # 如果中5宫寄2宫，天芮星会携带中5的干
                 if orig_p == 2:
                     stem_5 = dp.get(5, "")
                     if stem_5: stem_on_sky = stem_on_sky + stem_5
-                    
                 full_grid[curr_palace]["stem_t"] = stem_on_sky
-                
-            # 修正中宫天盘干 (通常为空，或者根据特定流派填)
             full_grid[5]["stem_t"] = "" 
 
-            # --- 排八门 (值使随时宫) ---
-            # 阳遁顺飞，阴遁逆飞
-            # 计算时辰地支 index 与 旬首地支 index 的差
             step = (h_zhi_idx - head_zhi_idx) % 12
-            
-            # 值使原本落宫
             try:
-                # 此时 pos_xun 已经是修正过寄宫的了(如果5则为2)
-                # 实际上值使门确实是从原始宫位起算
                 raw_pos_xun = 1
                 for p, s in dp.items():
                     if s == xun_gan: raw_pos_xun = p; break
-                if raw_pos_xun == 5: raw_pos_xun = 2 # 死门在2宫
-
-                d_start_palace = raw_pos_xun
-                d_start_idx = path.index(d_start_palace)
+                if raw_pos_xun == 5: raw_pos_xun = 2
+                d_start_idx = path.index(raw_pos_xun)
             except: d_start_idx = 0
-            
             fly_step = step if real_yang else -step
             dest_idx = (d_start_idx + fly_step) % 8
-            
             base_doors = ["休门","生门","伤门","杜门","景门","死门","惊门","开门"]
-            # 找到当前值使在门序中的位置
-            # 值使也是按固定顺序排的：休生伤杜景死惊开
-            # 注意：base_doors 顺序是 1->8->3->4->9->2->7->6 对应的门
-            # 1休 8生 3伤 4杜 9景 2死 7惊 6开
-            
-            current_zhishi_name = zhishi_door
-            if current_zhishi_name == "": current_zhishi_name = "死门" # 中5
-            
+            current_zhishi_name = zhishi_door if zhishi_door != "" else "死门"
             try: bd_idx = base_doors.index(current_zhishi_name)
             except: bd_idx = 5 
-                
             for i in range(8):
                 curr_door = base_doors[(bd_idx + i) % 8]
                 curr_p = path[(dest_idx + i) % 8]
                 full_grid[curr_p]["door"] = curr_door
 
-            # 6. 计算月将
-            # 月将 = 太阳过宫。简单算法：根据中气。
-            # 这里简化直接用黄经算
-            jiang_idx = (11 - int((slon + 30)/30)) % 12 # 亥将为首
-            yue_jiang = ZHI[jiang_idx]
-
+            jiang_idx = (11 - int((slon + 30)/30)) % 12
             return json.dumps({
                 "lunar": f"农历 {lunar.getMonthInChinese()}月{lunar.getDayInChinese()}",
                 "ganzhi": f"{gz.getYear()}年 {gz.getMonth()}月 {gz.getDay()}日 {gz.getTime()}时",
                 "jieqi": f"{term_name}",
                 "kongwang": f"日空:{lunar.getDayXunKong()} 时空:{lunar.getTimeXunKong()}",
-                "info": {
-                    "lon": f"{slon:.2f}°",
-                    "dubhe": f"{dubhe:.2f}°",
-                    "eot": f"{eot:.1f}m",
-                    "coords": f"{lat:.2f}, {lon:.2f}"
-                },
-                "ju": {
-                    "name": f"{'阳' if real_yang else '阴'}遁{ju}局 {['上','中','下'][yuan]}元",
-                    "zhifu": zhifu_star, 
-                    "zhishi": zhishi_door,
-                    "jiang": yue_jiang + "将"
-                },
+                "info": { "lon": f"{slon:.2f}°", "dubhe": f"{dubhe:.2f}°", "eot": f"{eot:.1f}m", "coords": f"{lat:.2f}, {lon:.2f}" },
+                "ju": { "name": f"{'阳' if real_yang else '阴'}遁{ju}局 {['上','中','下'][yuan]}元", "zhifu": zhifu_star, "zhishi": zhishi_door, "jiang": ZHI[jiang_idx] + "将" },
                 "grid": full_grid
             })
-            
         except Exception as e:
             return json.dumps({"error": str(e)})
 
 engine = QimenEngine()
-
 def python_entry(y, m, d, h, minute, lat, lon):
     res_str = engine.run(int(y), int(m), int(d), int(h), int(minute), float(lat), float(lon))
     js.render_result(res_str)
-
 js.window.python_entry = python_entry
 js.window.init_complete()
 </py-script>
@@ -464,7 +285,6 @@ js.window.init_complete()
     const statusSpan = document.getElementById('system-status');
     let pyReady = false;
 
-    // 初始化时间
     function setNow() {
         const now = new Date();
         const offset = now.getTimezoneOffset() * 60000;
@@ -473,38 +293,37 @@ js.window.init_complete()
     }
     setNow();
 
-    // PyScript 回调：环境加载完成
     window.init_complete = function() {
         document.getElementById('loader').style.display = 'none';
         btn.innerText = "立即排盘";
         btn.disabled = false;
         pyReady = true;
-        statusSpan.innerText = "Ready";
+        statusSpan.innerText = "System Ready";
         statusSpan.style.color = "#4ade80";
     }
 
-    // PyScript 回调：渲染结果
+    window.show_error = function(msg) {
+        document.getElementById('error-container').innerHTML = `<div class="error-notice">⚠️ ${msg}</div>`;
+        document.getElementById('loader').style.display = 'none';
+    }
+
     window.render_result = function(jsonStr) {
         const data = JSON.parse(jsonStr);
-        
         if(data.error) {
-            document.getElementById('error-container').innerHTML = `<div class="error-notice">计算错误: ${data.error}</div>`;
+            window.show_error("计算错误: " + data.error);
             return;
         }
-
         document.getElementById('result-area').classList.remove('hidden');
-        document.getElementById('error-container').innerHTML = ''; // Clear errors
+        document.getElementById('error-container').innerHTML = '';
         
         document.getElementById('lunar-date').innerText = data.lunar;
         document.getElementById('ganzhi').innerText = data.ganzhi;
         document.getElementById('jieqi').innerText = data.jieqi;
         document.getElementById('kongwang').innerText = data.kongwang;
-        
         document.getElementById('solar-lon').innerText = data.info.lon;
         document.getElementById('dubhe-ang').innerText = data.info.dubhe;
         document.getElementById('eot').innerText = data.info.eot;
         document.getElementById('coords').innerText = data.info.coords;
-        
         document.getElementById('ju-name').innerText = data.ju.name;
         document.getElementById('zhifu').innerText = data.ju.zhifu;
         document.getElementById('zhishi').innerText = data.ju.zhishi;
@@ -512,33 +331,21 @@ js.window.init_complete()
         
         const grid = document.getElementById('grid-container');
         grid.innerHTML = '';
-        // 九宫格顺序: 4(巽) 9(离) 2(坤) 3(震) 5(中) 7(兑) 8(艮) 1(坎) 6(乾)
         const mapOrder = [4, 9, 2, 3, 5, 7, 8, 1, 6]; 
-        
         mapOrder.forEach(idx => {
             const cell = document.createElement('div');
             cell.className = 'cell';
             if(idx === 5) cell.className += ' center';
-            
             const g = data.grid[idx.toString()];
             if(g) {
                 if(g.god) cell.innerHTML += `<div class="pos-god">${g.god}</div>`;
                 if(g.star) cell.innerHTML += `<div class="pos-star">${g.star}</div>`;
                 if(g.door) cell.innerHTML += `<div class="pos-door">${g.door}</div>`;
-                
-                // 处理天盘干（可能有两个，如 丙戊）
                 if(g.stem_t) {
                     const stems = g.stem_t.split('');
-                    let html = `<div class="pos-stem-t">`;
-                    if(stems.length > 1) {
-                        html = `<div class="pos-stem-t" style="font-size:0.85rem; top:6px;">${g.stem_t}`;
-                    } else {
-                        html += g.stem_t;
-                    }
-                    html += `</div>`;
+                    let html = stems.length > 1 ? `<div class="pos-stem-t" style="font-size:0.85rem; top:6px;">${g.stem_t}</div>` : `<div class="pos-stem-t">${g.stem_t}</div>`;
                     cell.innerHTML += html;
                 }
-                
                 if(g.stem_d) cell.innerHTML += `<div class="pos-stem-d">${g.stem_d}</div>`;
             }
             cell.innerHTML += `<div class="pos-num">${idx}</div>`;
@@ -548,39 +355,33 @@ js.window.init_complete()
 
     window.run_calc = function() {
         if(!pyReady) return;
-        const inputVal = dateInput.value;
-        if(!inputVal) { alert("请选择时间"); return; }
-        const dt = new Date(inputVal);
-        
-        // 尝试获取位置，失败则使用默认值
-        const defaultLat = 39.9042;
-        const defaultLon = 116.4074;
+        const dt = new Date(dateInput.value);
+        const defaultLat = 39.9042, defaultLon = 116.4074;
 
         if (navigator.geolocation) {
-            btn.innerText = "定位中...";
-            btn.disabled = true;
-            
+            btn.innerText = "定位中..."; btn.disabled = true;
             navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    btn.innerText = "立即排盘";
-                    btn.disabled = false;
-                    window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), pos.coords.latitude, pos.coords.longitude);
-                },
-                (err) => {
-                    console.warn("Location failed, using default:", err);
-                    document.getElementById('error-container').innerHTML = `<div class="error-notice">⚠️ 无法定位 (代码 ${err.code})，已使用北京坐标排盘。</div>`;
-                    btn.innerText = "立即排盘";
-                    btn.disabled = false;
-                    // Fallback to Beijing
+                (pos) => { btn.innerText = "立即排盘"; btn.disabled = false; window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), pos.coords.latitude, pos.coords.longitude); },
+                (err) => { 
+                    window.show_error("无法定位，已使用北京时间/经纬度。");
+                    btn.innerText = "立即排盘"; btn.disabled = false;
                     window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), defaultLat, defaultLon);
-                },
-                { timeout: 5000 } // 5秒超时
+                }, { timeout: 5000 }
             );
         } else {
-            // 不支持定位的浏览器
             window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), defaultLat, defaultLon);
         }
     }
+    
+    // 8秒检测
+    setTimeout(() => {
+        if(!pyReady) {
+            // 如果还未就绪，可能是PyScript CDN被墙，提示用户
+            document.getElementById('system-status').innerText = "Network Delay";
+            document.getElementById('system-status').style.color = "#f87171";
+            window.show_error("加载过慢？请检查网络或挂载VPN，Unpkg源可能在国内受限。");
+        }
+    }, 8000);
 </script>
 </body>
 </html>
