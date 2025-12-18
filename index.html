@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>遁甲归一 V37 (双模排盘版)</title>
+    <title>遁甲归一 V38 (符头修正版)</title>
     
     <link rel="stylesheet" href="https://pyscript.net/releases/2023.05.1/pyscript.css" />
     <script defer src="https://pyscript.net/releases/2023.05.1/pyscript.js"></script>
@@ -38,7 +38,6 @@
         .green-text { color: var(--green); font-weight: bold; }
         .data-val { color: #fff; font-family: monospace; font-size: 0.85rem;}
         
-        /* 专用显示区域 */
         #zhirun-info-box { background: rgba(0, 0, 0, 0.2); padding: 8px; border-radius: 6px; margin-top: 8px; border: 1px dashed #475569; display: none; }
         
         .grid-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; background: var(--border); border: 2px solid var(--border); border-radius: 6px; overflow: hidden; margin-top: 10px; aspect-ratio: 1/1; }
@@ -64,7 +63,7 @@
 
 <div class="app">
     <div class="status-bar">
-        <span>V37.Dual_Mode</span>
+        <span>V38.FuTou_Fix</span>
         <span id="system-status">Booting...</span>
     </div>
 
@@ -79,7 +78,7 @@
         <div class="input-group">
             <select id="calc-method" style="flex:1;">
                 <option value="chaibu">拆补法 (Chai Bu)</option>
-                <option value="zhirun">置闰法 (Zhi Run)</option>
+                <option value="zhirun">置润法 (Zhi Run)</option>
             </select>
         </div>
         <button id="calc-btn" class="btn" onclick="run_calc()" disabled>正在初始化...</button>
@@ -151,7 +150,10 @@ import math
 import json
 
 def log(msg):
-    js.document.getElementById('log-msg').innerText = msg
+    try:
+        js.document.getElementById('log-msg').innerText = msg
+    except:
+        pass
 
 async def init_engine():
     try:
@@ -200,7 +202,7 @@ class PreciseAstronomy:
 
 class QimenEngine:
     def _get_yuan_by_zhi(self, zhi_str):
-        # 拆补/置润通用元运判定
+        # 严格定元法：根据地支定三元
         # 子午卯酉(0,6,3,9) -> 上元(0)
         # 寅申巳亥(2,8,5,11) -> 中元(1)
         # 辰戌丑未(4,10,1,7) -> 下元(2)
@@ -208,15 +210,40 @@ class QimenEngine:
         elif zhi_str in ['寅', '申', '巳', '亥']: return 1
         return 2
 
-    def _get_chaibu_params(self, lunar, current_jie_name):
-        # 拆补法：
-        # 1. 节气严格按照当前时间点
-        # 2. 元运严格按照当前日支
+    def _calculate_futou(self, lunar):
+        # 通用计算符头逻辑
+        # 必须使用符头来定元，不能用当日地支
         gz = lunar.getEightChar()
+        day_gan = gz.getDayGan()
         day_zhi = gz.getDayZhi()
-        yuan = self._get_yuan_by_zhi(day_zhi)
+        day_gan_idx = GAN.index(day_gan)
+        day_zhi_idx = ZHI.index(day_zhi)
         
-        # 局数
+        # 寻找最近的甲或己
+        # 甲(0) ... 己(5) ...
+        # 距离 = (当前天干索引) % 5
+        offset = day_gan_idx % 5
+        
+        # 符头地支索引 = (当日地支 - 偏差) % 12
+        futou_zhi_idx = (day_zhi_idx - offset) % 12
+        futou_zhi = ZHI[futou_zhi_idx]
+        
+        # 符头天干 (甲或己)
+        futou_gan = '甲' if day_gan_idx < 5 else '己'
+        
+        return futou_gan + futou_zhi, futou_zhi
+
+    def _get_chaibu_params(self, lunar, current_jie_name):
+        # V38 核心修正：
+        # 即使是拆补法，元的判定也必须依据【符头】，而不是【当日地支】
+        
+        # 1. 计算符头
+        futou_ganzhi, futou_zhi = self._calculate_futou(lunar)
+        
+        # 2. 根据【符头地支】定元
+        yuan = self._get_yuan_by_zhi(futou_zhi)
+        
+        # 3. 局数查找 (使用严格时间确定的节气)
         if current_jie_name not in JU_MAP: current_jie_name = '冬至'
         ju_num = JU_MAP[current_jie_name][yuan]
         
@@ -228,77 +255,38 @@ class QimenEngine:
         }
 
     def _get_zhirun_params(self, lunar, current_dt):
-        # 置润法：
-        # 1. 寻找符头 (甲/己)
-        gz = lunar.getEightChar()
-        day_gan = gz.getDayGan()
-        day_zhi = gz.getDayZhi()
-        day_gan_idx = GAN.index(day_gan)
+        # 置润法逻辑
         
-        # 回溯找到符头日
-        offset = day_gan_idx % 5 # 距离最近的甲或己的天数
-        # 计算符头的 datetime
+        # 1. 计算符头
+        futou_ganzhi, futou_zhi = self._calculate_futou(lunar)
+        
+        # 2. 计算符头日期 (用于比对节气时间)
+        gz = lunar.getEightChar()
+        day_gan_idx = GAN.index(gz.getDayGan())
+        offset = day_gan_idx % 5
         futou_dt = current_dt - datetime.timedelta(days=offset)
-        # 构造符头的 Solar 对象以便获取它的节气
+        
+        # 构造符头的 Lunar 对象
         futou_solar = Solar.fromYmdHms(futou_dt.year, futou_dt.month, futou_dt.day, 0, 0, 0)
         futou_lunar = futou_solar.getLunar()
         
-        futou_ganzhi = futou_lunar.getEightChar().getDay() # 例如 "甲子"
-        futou_zhi = futou_lunar.getEightChar().getDayZhi()
-        
-        # 2. 判断符头所在的节气 (注意：是符头那天应该属于哪个节气，看它和节气交接点的关系)
-        # 逻辑：获取符头时刻 前面最近的一个节气
-        # lunar-python 的 getPrevJieQi(True) 包含当天
-        prev_jie = futou_lunar.getPrevJieQi(True) 
-        next_jie = futou_lunar.getNextJieQi(True)
-        
-        # 获取该节气的具体交接时间
+        # 3. 判断超神接气
+        # 获取符头当天的"上一节气" (包含当天)
+        prev_jie = futou_lunar.getPrevJieQi(True)
         jie_solar = prev_jie.getSolar()
         jie_dt = datetime.datetime(jie_solar.getYear(), jie_solar.getMonth(), jie_solar.getDay(), 
                                  jie_solar.getHour(), jie_solar.getMinute(), jie_solar.getSecond())
         
-        # 计算 超神/接气
-        # 符头时间 - 节气时间
-        # 如果 符头 在 节气 后，是正接气？
-        # 古法：
-        # 符头 先到，节气 未到 -> 超神 (符头日期 < 节气日期)
-        # 节气 先到，符头 未到 -> 接气 (节气日期 < 符头日期)
-        # 也就是 diff = 节气时间 - 符头时间
-        # 如果 diff > 0 (节气晚于符头)，说明符头早到了 -> 超神
-        
-        # 我们用 total_seconds 计算
+        # 计算差值: 节气时间 - 符头时间
+        # 如果 节气 在 符头 之后，说明符头先到了 -> 超神
         delta_days = (jie_dt - futou_dt).total_seconds() / 86400.0
-        
-        # 注意：这里 futou_dt 是当天的 00:00。节气可能是 8号 07:00。
-        # 如果 符头是 8号，节气是 8号07:00。 节气-符头 = 0.29天。正数。
-        # 说明符头(00:00)比节气(07:00)早 -> 超神。
-        
-        is_chao_shen = delta_days > 0 
+        is_chao_shen = delta_days > 0
         abs_days = abs(delta_days)
         
-        # 3. 确定节气名称
-        # 默认使用该节气
         use_term_name = prev_jie.getName()
-        
-        # 4. 置润判定 (Leap Rule)
-        # 只有在 芒种(Summer) 或 大雪(Winter) 附近，且 超神天数 > 9 时，才置润
-        # 置润操作：使用 上一个节气 的局，而不是当前的。
         is_leaping = False
         
-        # 简单的置润触发检测
-        # 如果超神超过9天，且当前节气变成了 夏至 或 冬至，则说明之前没置润，需要在这里补？
-        # 或者说：在芒种/大雪时，如果超神>9天，就不换芒种/大雪局，而是重复小满/小雪？
-        # 常见的置润是在 芒种/大雪 之后多用一气。
-        
-        # 这里采用严谨判断：
-        # 如果 超神 > 9天，且当前自然节气是 '夏至' (说明夏至到了，但符头超太多了，还没法换夏至局，得先把芒种闰完)
-        # 或者是 '冬至'
-        # 实际上置润通常发生在 芒种 后，夏至 前。
-        
-        # 简化算法 v1: 
-        # 如果超神 > 9天，且 use_term_name 是 '夏至'，强制回退到 '芒种' (即置润)
-        # 如果超神 > 9天，且 use_term_name 是 '冬至'，强制回退到 '大雪'
-        
+        # 4. 置润判定
         if is_chao_shen and abs_days > 9:
             if use_term_name == '夏至':
                 use_term_name = '芒种'
@@ -306,9 +294,8 @@ class QimenEngine:
             elif use_term_name == '冬至':
                 use_term_name = '大雪'
                 is_leaping = True
-            # 其他节气通常顺推，只有二至是阴阳转换的关键点，必须对齐
         
-        # 5. 定元 (注意：置润法 严格用 符头地支 定元)
+        # 5. 根据【符头地支】定元
         yuan = self._get_yuan_by_zhi(futou_zhi)
         
         if use_term_name not in JU_MAP: use_term_name = '冬至'
@@ -337,7 +324,7 @@ class QimenEngine:
             solar = Solar.fromYmdHms(tst.year, tst.month, tst.day, tst.hour, tst.minute, 0)
             lunar = solar.getLunar()
             
-            # 基础天文节气计算 (用于显示和拆补基准)
+            # 基础天文节气 (显示用)
             prev_jie = lunar.getPrevJieQi(True)
             jie_solar = prev_jie.getSolar()
             term_name = prev_jie.getName()
@@ -354,7 +341,7 @@ class QimenEngine:
             yuan = params['yuan']
             extra = params['extra_info']
 
-            # 计算排盘数据
+            # 计算排盘
             real_yang = final_term in ['冬至','小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种']
             
             stems_order = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙']
