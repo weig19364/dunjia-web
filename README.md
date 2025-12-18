@@ -1,0 +1,51 @@
+# 遁甲归一 (DunJia GuiYi) - High-Precision Qimen Dunjia Engine
+
+> **“算法致敬古法，天文对齐天道。”**
+
+本项目是一个基于 Web 的高精度奇门遁甲排盘系统。它摒弃了市面上常见的查表法，采用**瑞士星历表级精度的天文算法**（Meeus Algorithm）实时计算节气，并结合严格的**古籍定局逻辑**（符头定元），实现了**拆补法**与**置润法**的双模排盘。
+
+![Version](https://img.shields.io/badge/Version-V38.FuTou_Fix-blue) ![Stack](https://img.shields.io/badge/Tech-PyScript%20%7C%20WASM-yellow)
+
+## 核心优势：与传统排盘软件的区别
+
+很多市面上的排盘软件（APP或网页）是为了“能用”而写的，而本项目是为了“**懂行**”的人写的。以下是核心差异：
+
+| 维度 | 传统/通用排盘软件 | 遁甲归一 (本项目) |
+| :--- | :--- | :--- |
+| **时间基准** | **北京时间 (UTC+8)** <br> 忽略经纬度时差，导致真太阳时偏差极大。 | **真太阳时 (True Solar Time)** <br> 结合经纬度 + EOT (均时差) 补偿，精确到秒。 |
+| **节气判定** | **查表/寿星万年历** <br> 精度一般在分钟级，交节气瞬间容易出错。 | **天文实时计算** <br> 基于 VSOP87/Meeus 算法，精确判定交节气的毫秒级时间点。 |
+| **定元逻辑** | **日支定元 (粗略)** <br> *错误示例：见酉日即判为上元，导致辛酉日大雪节气排错。* | **符头定元 (严谨)** <br> *严格寻查甲/己符头，由符头地支决定上中下三元，杜绝逻辑漏洞。* |
+| **置润逻辑** | **模糊或不支持** <br> 往往只有一种模式，无法处理超神接气。 | **双模支持** <br> 支持**拆补法**（气变局变）与**置润法**（超神接气、二至置润）自由切换。 |
+| **隐私安全** | **服务器运算** <br> 八字数据传至后台，有泄露风险。 | **本地运算 (Serverless)** <br> 基于 PyScript (WASM)，所有计算在浏览器本地完成，数据不出用户设备。 |
+
+## 功能特性
+
+* **双模式排盘**：
+    * **拆补法 (Chai Bu)**：严格遵循天文节气时间，局随气转。
+    * **置润法 (Zhi Run)**：计算符头与节气的“超神”天数，自动提示积日与置润状态（芒种/大雪）。
+* **可视化盘面**：包含九星、八门、八神、天盘干、地盘干、马星空亡等完整信息。
+* **智能纠错**：V38 版本修复了“辛酉日”等特殊干支在传统算法中因定元逻辑简化而导致的局数错误。
+* **跨平台**：纯静态网页（HTML/JS/Python），可部署在 Cloudflare Pages、GitHub Pages 或本地运行，适配手机与桌面端。
+
+## 技术栈
+
+* **Frontend**: HTML5, CSS3 (Responsive Grid Layout)
+* **Engine**: Python (running in browser via PyScript)
+* **Astronomy Lib**: `lunar-python` (with precision tweaks), `math` (for raw astronomical formulas)
+* **Runtime**: WebAssembly (Pyodide)
+
+## 快速开始 (Run Locally)
+
+由于项目依赖 `.whl` 文件和 WASM 模块，受浏览器 CORS 安全策略限制，**不能直接双击 HTML 文件打开**。
+
+### 方法 1：使用 Python (推荐)
+如果你电脑已安装 Python：
+```bash
+# 1. 进入项目目录
+cd dunjia-web
+
+# 2. 启动本地服务器
+python -m http.server
+
+# 3. 浏览器访问
+http://localhost:8000
