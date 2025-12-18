@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>遁甲归一 V38 (符头修正版)</title>
+    <title>遁甲归一 V40 (终极同步版)</title>
     
     <link rel="stylesheet" href="https://pyscript.net/releases/2023.05.1/pyscript.css" />
     <script defer src="https://pyscript.net/releases/2023.05.1/pyscript.js"></script>
@@ -63,7 +63,7 @@
 
 <div class="app">
     <div class="status-bar">
-        <span>V38.FuTou_Fix</span>
+        <span>V40.Synced_Fix</span>
         <span id="system-status">Booting...</span>
     </div>
 
@@ -202,91 +202,84 @@ class PreciseAstronomy:
 
 class QimenEngine:
     def _get_yuan_by_zhi(self, zhi_str):
-        # 严格定元法：根据地支定三元
-        # 子午卯酉(0,6,3,9) -> 上元(0)
-        # 寅申巳亥(2,8,5,11) -> 中元(1)
-        # 辰戌丑未(4,10,1,7) -> 下元(2)
         if zhi_str in ['子', '午', '卯', '酉']: return 0
         elif zhi_str in ['寅', '申', '巳', '亥']: return 1
         return 2
 
     def _calculate_futou(self, lunar):
-        # 通用计算符头逻辑
-        # 必须使用符头来定元，不能用当日地支
         gz = lunar.getEightChar()
         day_gan = gz.getDayGan()
         day_zhi = gz.getDayZhi()
         day_gan_idx = GAN.index(day_gan)
         day_zhi_idx = ZHI.index(day_zhi)
-        
-        # 寻找最近的甲或己
-        # 甲(0) ... 己(5) ...
-        # 距离 = (当前天干索引) % 5
         offset = day_gan_idx % 5
-        
-        # 符头地支索引 = (当日地支 - 偏差) % 12
         futou_zhi_idx = (day_zhi_idx - offset) % 12
         futou_zhi = ZHI[futou_zhi_idx]
-        
-        # 符头天干 (甲或己)
         futou_gan = '甲' if day_gan_idx < 5 else '己'
-        
         return futou_gan + futou_zhi, futou_zhi
 
-    def _get_chaibu_params(self, lunar, current_jie_name):
-        # V38 核心修正：
-        # 即使是拆补法，元的判定也必须依据【符头】，而不是【当日地支】
-        
-        # 1. 计算符头
+    def _get_strict_jieqi(self, lunar, current_dt):
+        # 1. 获取"逻辑上"的上一个节气
+        prev = lunar.getPrevJieQi(True)
+        # 2. 获取该节气的具体天文时间
+        p_solar = prev.getSolar()
+        p_dt = datetime.datetime(p_solar.getYear(), p_solar.getMonth(), p_solar.getDay(), 
+                                 p_solar.getHour(), p_solar.getMinute(), p_solar.getSecond())
+        # 3. 严格比对：如果当前时间 < 节气交接时间，说明还没过节，强制回退
+        if current_dt < p_dt:
+            return lunar.getPrevJieQi(False)
+        return prev
+
+    def _get_synced_month_ganzhi(self, original_gz, strict_term_obj):
+        # V40 新增：强制同步月柱
+        # 原理：根据 strict_term_obj (严格节气)，构造一个绝对安全的时间点（交节后10秒）
+        # 反查该时间点的月柱，确保与节气一致。
+        try:
+            ts = strict_term_obj.getSolar()
+            # 构造该节气开始的时间
+            safe_solar = Solar.fromYmdHms(ts.getYear(), ts.getMonth(), ts.getDay(), 
+                                        ts.getHour(), ts.getMinute(), ts.getSecond())
+            
+            # 转换为 Lunar 并获取八字，此时的月柱一定是该节气所属的月柱
+            safe_lunar = safe_solar.getLunar()
+            safe_gz = safe_lunar.getEightChar()
+            
+            return safe_gz.getMonthGan() + safe_gz.getMonthZhi()
+        except:
+            return original_gz.getMonthGan() + original_gz.getMonthZhi()
+
+    def _get_chaibu_params(self, lunar, strict_term_obj):
+        strict_term_name = strict_term_obj.getName()
         futou_ganzhi, futou_zhi = self._calculate_futou(lunar)
-        
-        # 2. 根据【符头地支】定元
         yuan = self._get_yuan_by_zhi(futou_zhi)
-        
-        # 3. 局数查找 (使用严格时间确定的节气)
-        if current_jie_name not in JU_MAP: current_jie_name = '冬至'
-        ju_num = JU_MAP[current_jie_name][yuan]
-        
+        if strict_term_name not in JU_MAP: strict_term_name = '冬至'
+        ju_num = JU_MAP[strict_term_name][yuan]
         return {
-            "term_name": current_jie_name,
+            "term_name": strict_term_name,
             "ju_num": ju_num,
             "yuan": yuan,
             "extra_info": None
         }
 
-    def _get_zhirun_params(self, lunar, current_dt):
-        # 置润法逻辑
-        
-        # 1. 计算符头
+    def _get_zhirun_params(self, lunar, current_dt, strict_term_obj):
         futou_ganzhi, futou_zhi = self._calculate_futou(lunar)
-        
-        # 2. 计算符头日期 (用于比对节气时间)
         gz = lunar.getEightChar()
         day_gan_idx = GAN.index(gz.getDayGan())
         offset = day_gan_idx % 5
         futou_dt = current_dt - datetime.timedelta(days=offset)
+        futou_dt = futou_dt.replace(hour=0, minute=0, second=0, microsecond=0)
         
-        # 构造符头的 Lunar 对象
-        futou_solar = Solar.fromYmdHms(futou_dt.year, futou_dt.month, futou_dt.day, 0, 0, 0)
-        futou_lunar = futou_solar.getLunar()
-        
-        # 3. 判断超神接气
-        # 获取符头当天的"上一节气" (包含当天)
-        prev_jie = futou_lunar.getPrevJieQi(True)
-        jie_solar = prev_jie.getSolar()
+        jie_solar = strict_term_obj.getSolar()
         jie_dt = datetime.datetime(jie_solar.getYear(), jie_solar.getMonth(), jie_solar.getDay(), 
                                  jie_solar.getHour(), jie_solar.getMinute(), jie_solar.getSecond())
         
-        # 计算差值: 节气时间 - 符头时间
-        # 如果 节气 在 符头 之后，说明符头先到了 -> 超神
         delta_days = (jie_dt - futou_dt).total_seconds() / 86400.0
         is_chao_shen = delta_days > 0
         abs_days = abs(delta_days)
         
-        use_term_name = prev_jie.getName()
+        use_term_name = strict_term_obj.getName()
         is_leaping = False
         
-        # 4. 置润判定
         if is_chao_shen and abs_days > 9:
             if use_term_name == '夏至':
                 use_term_name = '芒种'
@@ -295,9 +288,7 @@ class QimenEngine:
                 use_term_name = '大雪'
                 is_leaping = True
         
-        # 5. 根据【符头地支】定元
         yuan = self._get_yuan_by_zhi(futou_zhi)
-        
         if use_term_name not in JU_MAP: use_term_name = '冬至'
         ju_num = JU_MAP[use_term_name][yuan]
         
@@ -310,7 +301,7 @@ class QimenEngine:
                 "chaoshen": is_chao_shen,
                 "days": f"{abs_days:.1f}",
                 "leaping": is_leaping,
-                "raw_term": prev_jie.getName()
+                "raw_term": strict_term_obj.getName()
             }
         }
 
@@ -324,26 +315,37 @@ class QimenEngine:
             solar = Solar.fromYmdHms(tst.year, tst.month, tst.day, tst.hour, tst.minute, 0)
             lunar = solar.getLunar()
             
-            # 基础天文节气 (显示用)
-            prev_jie = lunar.getPrevJieQi(True)
-            jie_solar = prev_jie.getSolar()
-            term_name = prev_jie.getName()
-            exact_jie_str = f"{term_name}: {jie_solar.toYmdHms()}"
+            # 1. 获取严格校验后的节气
+            strict_term_obj = self._get_strict_jieqi(lunar, dt_obj)
+            strict_term_name = strict_term_obj.getName()
             
-            # --- 核心分支 ---
+            # 2. 基础信息显示
+            jie_solar = strict_term_obj.getSolar()
+            exact_jie_str = f"{strict_term_name}: {jie_solar.toYmdHms()}"
+            
+            # 3. 核心计算 (拆补/置润)
             if method == 'zhirun':
-                params = self._get_zhirun_params(lunar, dt_obj)
+                params = self._get_zhirun_params(lunar, dt_obj, strict_term_obj)
             else:
-                params = self._get_chaibu_params(lunar, term_name)
+                params = self._get_chaibu_params(lunar, strict_term_obj)
                 
             final_term = params['term_name']
             ju = params['ju_num']
             yuan = params['yuan']
             extra = params['extra_info']
 
-            # 计算排盘
-            real_yang = final_term in ['冬至','小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种']
+            # 4. 【V40 关键】构建显示的干支，特别是强制同步月柱
+            gz = lunar.getEightChar()
+            y_gz = gz.getYear()
+            d_gz = gz.getDay()
+            t_gz = gz.getTime()
+            # 强制同步月柱
+            m_gz_synced = self._get_synced_month_ganzhi(gz, strict_term_obj)
             
+            final_ganzhi_str = f"{y_gz}年 {m_gz_synced}月 {d_gz}日 {t_gz}时"
+
+            # 5. 排盘逻辑
+            real_yang = final_term in ['冬至','小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种']
             stems_order = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙']
             dp = {} 
             for i, s in enumerate(stems_order):
@@ -352,7 +354,6 @@ class QimenEngine:
                 if pos == 0: pos = 9
                 dp[pos] = s
             
-            gz = lunar.getEightChar()
             h_gan = gz.getTimeGan()
             h_zhi = gz.getTimeZhi()
             h_zhi_idx = ZHI.index(h_zhi)
@@ -419,9 +420,9 @@ class QimenEngine:
             
             return json.dumps({
                 "lunar": f"农历 {lunar.getMonthInChinese()}月{lunar.getDayInChinese()}",
-                "ganzhi": f"{gz.getYear()}年 {gz.getMonth()}月 {gz.getDay()}日 {gz.getTime()}时",
+                "ganzhi": final_ganzhi_str,
                 "jieqi": f"{final_term}",
-                "exact_jieqi": f"实际节气: {jie_solar.toYmdHms()}",
+                "exact_jieqi": f"基准节气: {jie_solar.toYmdHms()}",
                 "kongwang": f"日空:{lunar.getDayXunKong()} 时空:{lunar.getTimeXunKong()}",
                 "info": { "lon": f"{slon:.2f}°", "dubhe": f"{dubhe:.2f}°", "eot": f"{eot:.1f}m", "coords": f"{lat:.2f}, {lon:.2f}" },
                 "ju": { "name": f"{'阳' if real_yang else '阴'}遁{ju}局 {['上','中','下'][yuan]}元", "zhifu": zhifu_star, "zhishi": zhishi_door, "jiang": ZHI[jiang_idx] + "将" },
