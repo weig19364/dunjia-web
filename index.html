@@ -3,24 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>遁甲归一 V40 (终极同步版)</title>
+    <title>遁甲归一 V43 (时柱全同步版)</title>
     
     <link rel="stylesheet" href="https://pyscript.net/releases/2023.05.1/pyscript.css" />
     <script defer src="https://pyscript.net/releases/2023.05.1/pyscript.js"></script>
 
     <style>
         py-script, py-config { display: none !important; }
-
         :root { 
             --bg: #0f172a; --panel: #1e293b; --text: #cbd5e1; 
             --accent: #38bdf8; --gold: #f59e0b; --red: #f87171; --border: #334155; --green: #4ade80;
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { 
-            background: var(--bg); color: var(--text); 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            margin: 0; padding: 10px; overflow-x: hidden; display: flex; justify-content: center;
-        }
+        body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 10px; display: flex; justify-content: center; }
         .app { width: 100%; max-width: 400px; margin: 0 auto; padding-bottom: 20px;}
         .status-bar { display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b; margin-bottom: 8px; padding: 0 4px; }
         .controls { background: var(--panel); padding: 12px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }
@@ -37,9 +32,7 @@
         .red-text { color: var(--red); font-weight: bold; }
         .green-text { color: var(--green); font-weight: bold; }
         .data-val { color: #fff; font-family: monospace; font-size: 0.85rem;}
-        
         #zhirun-info-box { background: rgba(0, 0, 0, 0.2); padding: 8px; border-radius: 6px; margin-top: 8px; border: 1px dashed #475569; display: none; }
-        
         .grid-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; background: var(--border); border: 2px solid var(--border); border-radius: 6px; overflow: hidden; margin-top: 10px; aspect-ratio: 1/1; }
         .cell { background: #0f172a; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .cell.center { background: #172033; }
@@ -49,11 +42,9 @@
         .pos-stem-t { position: absolute; top: 4px; right: 4px; font-size: 1rem; font-weight: bold; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
         .pos-stem-d { position: absolute; bottom: 4px; left: 4px; font-size: 1rem; font-weight: bold; color: #94a3b8; }
         .pos-num { position: absolute; bottom: 2px; right: 2px; font-size: 0.6rem; color: #334155; opacity: 0.5; }
-        
         #loader { text-align: center; color: var(--accent); margin-top: 30px; font-size: 0.9rem; padding: 20px;}
         .spinner { width: 40px; height: 40px; border: 4px solid #334155; border-top: 4px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
         .error-notice { background: rgba(220, 38, 38, 0.2); color: #fca5a5; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 0.85rem; border: 1px solid #ef4444; }
         .warning-notice { background: rgba(234, 179, 8, 0.2); color: #fde047; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 0.8rem; border: 1px solid #eab308; display: flex; align-items: center; gap: 8px;}
         .hidden { display: none; }
@@ -63,7 +54,7 @@
 
 <div class="app">
     <div class="status-bar">
-        <span>V40.Synced_Fix</span>
+        <span>V43.Full_Sync</span>
         <span id="system-status">Booting...</span>
     </div>
 
@@ -82,6 +73,9 @@
             </select>
         </div>
         <button id="calc-btn" class="btn" onclick="run_calc()" disabled>正在初始化...</button>
+        <div style="font-size: 0.7rem; color: #64748b; text-align: center; margin-top: 4px;">
+            定位状态: <span id="loc-status">初始化...</span>
+        </div>
     </div>
 
     <div id="result-area" class="hidden">
@@ -92,7 +86,6 @@
                 <span id="jieqi">--</span> <span style="margin:0 6px; opacity:0.3">|</span> <span id="kongwang">--</span>
             </div>
             <div style="font-size: 0.75rem; color: var(--accent); margin-top: 4px; font-family: monospace;" id="jieqi-exact-time"></div>
-            
             <div id="zhirun-info-box">
                 <div class="info-row" style="font-size: 0.8rem; color: #cbd5e1;">
                     <span>符头: <span id="futou-val" class="highlight">--</span></span>
@@ -160,11 +153,9 @@ async def init_engine():
         file_url = "./lunar_python-1.4.8-py3-none-any.whl"
         log(f"Step 2: 加载文件 {file_url}...")
         await micropip.install(file_url)
-        
         log("Step 3: 导入模块...")
         global Lunar, Solar, JieQi
         from lunar_python import Lunar, Solar, JieQi
-        
         log("Step 4: 就绪！")
         js.window.init_complete()
     except Exception as e:
@@ -219,91 +210,41 @@ class QimenEngine:
         return futou_gan + futou_zhi, futou_zhi
 
     def _get_strict_jieqi(self, lunar, current_dt):
-        # 1. 获取"逻辑上"的上一个节气
         prev = lunar.getPrevJieQi(True)
-        # 2. 获取该节气的具体天文时间
         p_solar = prev.getSolar()
         p_dt = datetime.datetime(p_solar.getYear(), p_solar.getMonth(), p_solar.getDay(), 
                                  p_solar.getHour(), p_solar.getMinute(), p_solar.getSecond())
-        # 3. 严格比对：如果当前时间 < 节气交接时间，说明还没过节，强制回退
         if current_dt < p_dt:
             return lunar.getPrevJieQi(False)
         return prev
 
-    def _get_synced_month_ganzhi(self, original_gz, strict_term_obj):
-        # V40 新增：强制同步月柱
-        # 原理：根据 strict_term_obj (严格节气)，构造一个绝对安全的时间点（交节后10秒）
-        # 反查该时间点的月柱，确保与节气一致。
+    def _get_synced_eight_char(self, current_dt, strict_term_obj):
         try:
             ts = strict_term_obj.getSolar()
-            # 构造该节气开始的时间
             safe_solar = Solar.fromYmdHms(ts.getYear(), ts.getMonth(), ts.getDay(), 
                                         ts.getHour(), ts.getMinute(), ts.getSecond())
-            
-            # 转换为 Lunar 并获取八字，此时的月柱一定是该节气所属的月柱
             safe_lunar = safe_solar.getLunar()
             safe_gz = safe_lunar.getEightChar()
-            
-            return safe_gz.getMonthGan() + safe_gz.getMonthZhi()
-        except:
-            return original_gz.getMonthGan() + original_gz.getMonthZhi()
-
-    def _get_chaibu_params(self, lunar, strict_term_obj):
-        strict_term_name = strict_term_obj.getName()
-        futou_ganzhi, futou_zhi = self._calculate_futou(lunar)
-        yuan = self._get_yuan_by_zhi(futou_zhi)
-        if strict_term_name not in JU_MAP: strict_term_name = '冬至'
-        ju_num = JU_MAP[strict_term_name][yuan]
-        return {
-            "term_name": strict_term_name,
-            "ju_num": ju_num,
-            "yuan": yuan,
-            "extra_info": None
-        }
-
-    def _get_zhirun_params(self, lunar, current_dt, strict_term_obj):
-        futou_ganzhi, futou_zhi = self._calculate_futou(lunar)
-        gz = lunar.getEightChar()
-        day_gan_idx = GAN.index(gz.getDayGan())
-        offset = day_gan_idx % 5
-        futou_dt = current_dt - datetime.timedelta(days=offset)
-        futou_dt = futou_dt.replace(hour=0, minute=0, second=0, microsecond=0)
-        
-        jie_solar = strict_term_obj.getSolar()
-        jie_dt = datetime.datetime(jie_solar.getYear(), jie_solar.getMonth(), jie_solar.getDay(), 
-                                 jie_solar.getHour(), jie_solar.getMinute(), jie_solar.getSecond())
-        
-        delta_days = (jie_dt - futou_dt).total_seconds() / 86400.0
-        is_chao_shen = delta_days > 0
-        abs_days = abs(delta_days)
-        
-        use_term_name = strict_term_obj.getName()
-        is_leaping = False
-        
-        if is_chao_shen and abs_days > 9:
-            if use_term_name == '夏至':
-                use_term_name = '芒种'
-                is_leaping = True
-            elif use_term_name == '冬至':
-                use_term_name = '大雪'
-                is_leaping = True
-        
-        yuan = self._get_yuan_by_zhi(futou_zhi)
-        if use_term_name not in JU_MAP: use_term_name = '冬至'
-        ju_num = JU_MAP[use_term_name][yuan]
-        
-        return {
-            "term_name": use_term_name,
-            "ju_num": ju_num,
-            "yuan": yuan,
-            "extra_info": {
-                "futou": futou_ganzhi,
-                "chaoshen": is_chao_shen,
-                "days": f"{abs_days:.1f}",
-                "leaping": is_leaping,
-                "raw_term": strict_term_obj.getName()
+            user_solar = Solar.fromYmdHms(current_dt.year, current_dt.month, current_dt.day, 
+                                        current_dt.hour, current_dt.minute, current_dt.second)
+            user_lunar = user_solar.getLunar()
+            user_gz = user_lunar.getEightChar()
+            return {
+                "year": safe_gz.getYear(),
+                "month": safe_gz.getMonth(),
+                "day": user_gz.getDay(),
+                "time": user_gz.getTime(),
+                "time_gan": user_gz.getTimeGan(),
+                "time_zhi": user_gz.getTimeZhi()
             }
-        }
+        except:
+            user_solar = Solar.fromYmdHms(current_dt.year, current_dt.month, current_dt.day, 
+                                        current_dt.hour, current_dt.minute, current_dt.second)
+            ugz = user_solar.getLunar().getEightChar()
+            return {
+                "year": ugz.getYear(), "month": ugz.getMonth(), "day": ugz.getDay(), 
+                "time": ugz.getTime(), "time_gan": ugz.getTimeGan(), "time_zhi": ugz.getTimeZhi()
+            }
 
     def run(self, year, month, day, hour, minute, lat, lon, method):
         try:
@@ -315,15 +256,8 @@ class QimenEngine:
             solar = Solar.fromYmdHms(tst.year, tst.month, tst.day, tst.hour, tst.minute, 0)
             lunar = solar.getLunar()
             
-            # 1. 获取严格校验后的节气
             strict_term_obj = self._get_strict_jieqi(lunar, dt_obj)
-            strict_term_name = strict_term_obj.getName()
             
-            # 2. 基础信息显示
-            jie_solar = strict_term_obj.getSolar()
-            exact_jie_str = f"{strict_term_name}: {jie_solar.toYmdHms()}"
-            
-            # 3. 核心计算 (拆补/置润)
             if method == 'zhirun':
                 params = self._get_zhirun_params(lunar, dt_obj, strict_term_obj)
             else:
@@ -333,86 +267,87 @@ class QimenEngine:
             ju = params['ju_num']
             yuan = params['yuan']
             extra = params['extra_info']
+            sync_gz = self._get_synced_eight_char(dt_obj, strict_term_obj)
+            final_ganzhi_str = f"{sync_gz['year']}年 {sync_gz['month']}月 {sync_gz['day']}日 {sync_gz['time']}时"
 
-            # 4. 【V40 关键】构建显示的干支，特别是强制同步月柱
-            gz = lunar.getEightChar()
-            y_gz = gz.getYear()
-            d_gz = gz.getDay()
-            t_gz = gz.getTime()
-            # 强制同步月柱
-            m_gz_synced = self._get_synced_month_ganzhi(gz, strict_term_obj)
-            
-            final_ganzhi_str = f"{y_gz}年 {m_gz_synced}月 {d_gz}日 {t_gz}时"
-
-            # 5. 排盘逻辑
             real_yang = final_term in ['冬至','小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种']
             stems_order = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙']
+            
+            # 1. 地盘
             dp = {} 
             for i, s in enumerate(stems_order):
                 pos = ((ju - 1 + i) % 9) + 1 if real_yang else ((ju - 1 - i) % 9) + 1
                 if pos <= 0: pos += 9
-                if pos == 0: pos = 9
                 dp[pos] = s
             
-            h_gan = gz.getTimeGan()
-            h_zhi = gz.getTimeZhi()
+            # 2. 旬首
+            h_gan, h_zhi = sync_gz['time_gan'], sync_gz['time_zhi']
             h_zhi_idx = ZHI.index(h_zhi)
-            head_zhi_idx = (h_zhi_idx - GAN.index(h_gan)) % 12 
+            head_offset = (h_zhi_idx - GAN.index(h_gan)) % 12 
             xun_map = {0:'戊', 10:'己', 8:'庚', 6:'辛', 4:'壬', 2:'癸'}
-            xun_gan = xun_map.get(head_zhi_idx, '戊')
+            xun_gan = xun_map.get(head_offset, '戊')
+            
             pos_xun = 1
             for p, s in dp.items():
                 if s == xun_gan: pos_xun = p; break
+            
             zhifu_star = STARS[pos_xun] 
-            zhishi_door = DOORS[pos_xun] if pos_xun != 5 else "死门" 
-            if pos_xun == 5: pos_xun = 2 
+            zhishi_door = DOORS[pos_xun] if pos_xun != 5 else "死门"
+
+            # 3. 天盘与八神 (转盘路径)
+            path = [1, 8, 3, 4, 9, 2, 7, 6]
+            full_grid = {i: {"stem_d": dp.get(i, ""), "stem_t": "", "star": "", "door": "", "god": ""} for i in range(1, 10)}
+            
             target_stem = h_gan if h_gan != '甲' else xun_gan
             pos_sky_dest = 1 
             for p, s in dp.items():
                 if s == target_stem: pos_sky_dest = p; break
-            path = [1,8,3,4,9,2,7,6] 
-            full_grid = {}
-            for i in range(1, 10):
-                full_grid[i] = {"stem_d": dp.get(i, ""), "stem_t": "", "star": "", "door": "", "god": ""}
+            if pos_sky_dest == 5: pos_sky_dest = 2
+
             try: start_idx = path.index(pos_sky_dest)
             except: start_idx = 0 
+
+            # 八神
             for i in range(8):
                 p_idx = (start_idx + i) % 8 if real_yang else (start_idx - i) % 8 
                 full_grid[path[p_idx]]["god"] = GODS[i]
+
+            # 九星转动
             target_star_name = "天芮" if zhifu_star == "天禽" else zhifu_star
             base_stars = ["天蓬","天任","天冲","天辅","天英","天芮","天柱","天心"]
+            star_to_ori = {"天蓬":1, "天任":8, "天冲":3, "天辅":4, "天英":9, "天芮":2, "天柱":7, "天心":6}
+            
             try: s_idx = base_stars.index(target_star_name)
             except: s_idx = 0
+            
             for i in range(8):
                 curr_star = base_stars[(s_idx + i) % 8]
                 curr_palace = path[(start_idx + i) % 8]
-                full_grid[curr_palace]["star"] = curr_star
-                if curr_star == "天芮": full_grid[curr_palace]["star"] = "天芮(禽)"
-                orig_p = { "天蓬":1, "天任":8, "天冲":3, "天辅":4, "天英":9, "天芮":2, "天柱":7, "天心":6 }.get(curr_star, 1)
-                stem_on_sky = dp.get(orig_p, "")
-                if orig_p == 2:
-                    stem_5 = dp.get(5, "")
-                    if stem_5: stem_on_sky = stem_on_sky + stem_5
-                full_grid[curr_palace]["stem_t"] = stem_on_sky
-            full_grid[5]["stem_t"] = "" 
-            step = (h_zhi_idx - head_zhi_idx) % 12
-            try:
-                raw_pos_xun = 1
-                for p, s in dp.items():
-                    if s == xun_gan: raw_pos_xun = p; break
-                if raw_pos_xun == 5: raw_pos_xun = 2
-                d_start_idx = path.index(raw_pos_xun)
-            except: d_start_idx = 0
-            fly_step = step if real_yang else -step
-            dest_idx = (d_start_idx + fly_step) % 8
-            base_doors = ["休门","生门","伤门","杜门","景门","死门","惊门","开门"]
-            current_zhishi_name = zhishi_door if zhishi_door != "" else "死门"
-            try: bd_idx = base_doors.index(current_zhishi_name)
-            except: bd_idx = 5 
+                full_grid[curr_palace]["star"] = curr_star + "(禽)" if curr_star == "天芮" else curr_star
+                orig_p = star_to_ori.get(curr_star)
+                sky_gan = dp.get(orig_p, "")
+                if orig_p == 2: sky_gan += dp.get(5, "") # 携带中五干
+                full_grid[curr_palace]["stem_t"] = sky_gan
+
+            # 4. 门盘修正 (值使行走算法)
+            step_count = (h_zhi_idx - head_offset) % 12
+            curr_door_pos = pos_xun
+            for _ in range(step_count):
+                if real_yang:
+                    curr_door_pos = (curr_door_pos % 9) + 1
+                else:
+                    curr_door_pos = 9 if curr_door_pos == 1 else curr_door_pos - 1
+            if curr_door_pos == 5: curr_door_pos = 2
+            
+            base_doors_order = ["休门","生门","伤门","杜门","景门","死门","惊门","开门"]
+            try: ori_door_idx = base_doors_order.index(zhishi_door)
+            except: ori_door_idx = base_doors_order.index("死门")
+            
+            try: d_idx = path.index(curr_door_pos)
+            except: d_idx = 5
+            
             for i in range(8):
-                curr_door = base_doors[(bd_idx + i) % 8]
-                curr_p = path[(dest_idx + i) % 8]
-                full_grid[curr_p]["door"] = curr_door
+                full_grid[path[(d_idx + i) % 8]]["door"] = base_doors_order[(ori_door_idx + i) % 8]
 
             slon = PreciseAstronomy.get_lon(tst) 
             dubhe = (slon + 90.0) % 360.0    
@@ -422,7 +357,7 @@ class QimenEngine:
                 "lunar": f"农历 {lunar.getMonthInChinese()}月{lunar.getDayInChinese()}",
                 "ganzhi": final_ganzhi_str,
                 "jieqi": f"{final_term}",
-                "exact_jieqi": f"基准节气: {jie_solar.toYmdHms()}",
+                "exact_jieqi": f"基准节气: {strict_term_obj.getSolar().toYmdHms()}",
                 "kongwang": f"日空:{lunar.getDayXunKong()} 时空:{lunar.getTimeXunKong()}",
                 "info": { "lon": f"{slon:.2f}°", "dubhe": f"{dubhe:.2f}°", "eot": f"{eot:.1f}m", "coords": f"{lat:.2f}, {lon:.2f}" },
                 "ju": { "name": f"{'阳' if real_yang else '阴'}遁{ju}局 {['上','中','下'][yuan]}元", "zhifu": zhifu_star, "zhishi": zhishi_door, "jiang": ZHI[jiang_idx] + "将" },
@@ -430,13 +365,39 @@ class QimenEngine:
                 "zhirun_info": extra
             })
         except Exception as e:
-            return json.dumps({"error": str(e)})
+            import traceback
+            return json.dumps({"error": f"{str(e)}\n{traceback.format_exc()}"})
+
+    def _get_chaibu_params(self, lunar, strict_term_obj):
+        stn = strict_term_obj.getName()
+        ft_gz, ft_zhi = self._calculate_futou(lunar)
+        yuan = self._get_yuan_by_zhi(ft_zhi)
+        if stn not in JU_MAP: stn = '冬至'
+        return {"term_name": stn, "ju_num": JU_MAP[stn][yuan], "yuan": yuan, "extra_info": None}
+
+    def _get_zhirun_params(self, lunar, current_dt, strict_term_obj):
+        ft_gz, ft_zhi = self._calculate_futou(lunar)
+        gz = lunar.getEightChar()
+        offset = GAN.index(gz.getDayGan()) % 5
+        ft_dt = (current_dt - datetime.timedelta(days=offset)).replace(hour=0, minute=0, second=0, microsecond=0)
+        jsl = strict_term_obj.getSolar()
+        jdt = datetime.datetime(jsl.getYear(), jsl.getMonth(), jsl.getDay(), jsl.getHour(), jsl.getMinute(), jsl.getSecond())
+        dd = (jdt - ft_dt).total_seconds() / 86400.0
+        is_cs = dd > 0
+        ad = abs(dd)
+        utn = strict_term_obj.getName()
+        isl = False
+        if is_cs and ad > 9:
+            if utn == '夏至': utn = '芒种'; isl = True
+            elif utn == '冬至': utn = '大雪'; isl = True
+        yuan = self._get_yuan_by_zhi(ft_zhi)
+        if utn not in JU_MAP: utn = '冬至'
+        return {"term_name": utn, "ju_num": JU_MAP[utn][yuan], "yuan": yuan, "extra_info": {"futou": ft_gz, "chaoshen": is_cs, "days": f"{ad:.1f}", "leaping": isl, "raw_term": strict_term_obj.getName()}}
 
 engine = QimenEngine()
 def python_entry(y, m, d, h, minute, lat, lon, method):
     res_str = engine.run(int(y), int(m), int(d), int(h), int(minute), float(lat), float(lon), str(method))
     js.render_result(res_str)
-
 js.window.python_entry = python_entry
 </py-script>
 
@@ -445,15 +406,43 @@ js.window.python_entry = python_entry
     const dateInput = document.getElementById('datetime-input');
     const methodSelect = document.getElementById('calc-method');
     const statusSpan = document.getElementById('system-status');
+    const locStatus = document.getElementById('loc-status');
     let pyReady = false;
+    let userCoords = { lat: 39.9042, lon: 116.4074 };
+    let hasRealLoc = false;
 
     function setNow() {
         const now = new Date();
         const offset = now.getTimezoneOffset() * 60000;
         const localIso = new Date(now - offset).toISOString().slice(0, 16);
-        dateInput.value = localIso;
+        if(dateInput) dateInput.value = localIso;
     }
-    setNow();
+    
+    function autoLocate() {
+        if (navigator.geolocation) {
+            locStatus.innerText = "正在定位...";
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    userCoords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+                    hasRealLoc = true;
+                    locStatus.innerText = "已获取定位";
+                    locStatus.style.color = "#4ade80";
+                },
+                (err) => {
+                    locStatus.innerText = "定位失败(使用默认)";
+                    locStatus.style.color = "#64748b";
+                },
+                { timeout: 5000 }
+            );
+        } else {
+            locStatus.innerText = "不支持定位";
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        setNow();
+        autoLocate();
+    });
 
     window.init_complete = function() {
         document.getElementById('loader').style.display = 'none';
@@ -462,6 +451,7 @@ js.window.python_entry = python_entry
         pyReady = true;
         statusSpan.innerText = "Ready";
         statusSpan.style.color = "#4ade80";
+        if(!dateInput.value) setNow();
     }
 
     window.show_error = function(msg) {
@@ -482,12 +472,10 @@ js.window.python_entry = python_entry
         }
         document.getElementById('result-area').classList.remove('hidden');
         document.getElementById('error-container').innerHTML = ''; 
-        
         document.getElementById('lunar-date').innerText = data.lunar;
         document.getElementById('ganzhi').innerText = data.ganzhi;
         document.getElementById('jieqi').innerText = data.jieqi;
         document.getElementById('jieqi-exact-time').innerText = data.exact_jieqi; 
-        
         document.getElementById('kongwang').innerText = data.kongwang;
         document.getElementById('solar-lon').innerText = data.info.lon;
         document.getElementById('dubhe-ang').innerText = data.info.dubhe;
@@ -498,31 +486,18 @@ js.window.python_entry = python_entry
         document.getElementById('zhishi').innerText = data.ju.zhishi;
         document.getElementById('jiang').innerText = data.ju.jiang;
         
-        // 置润法信息显示逻辑
         const zrBox = document.getElementById('zhirun-info-box');
         if(data.zhirun_info) {
             zrBox.style.display = 'block';
             document.getElementById('futou-val').innerText = data.zhirun_info.futou;
-            
             const isChao = data.zhirun_info.chaoshen;
             const days = data.zhirun_info.days;
-            const statusSpan = document.getElementById('chaoshen-status');
-            
-            if(isChao) {
-                statusSpan.innerText = "超神";
-                statusSpan.className = "accent";
-            } else {
-                statusSpan.innerText = "接气";
-                statusSpan.className = "green-text";
-            }
-            
+            const ss = document.getElementById('chaoshen-status');
+            if(isChao) { ss.innerText = "超神"; ss.className = "accent"; } 
+            else { ss.innerText = "接气"; ss.className = "green-text"; }
             let desc = `${days} 天`;
-            if(data.zhirun_info.leaping) {
-                desc += " (已置润)";
-                document.getElementById('accum-days').style.color = "#f87171";
-            } else {
-                document.getElementById('accum-days').style.color = "#cbd5e1";
-            }
+            if(data.zhirun_info.leaping) { desc += " (已置润)"; document.getElementById('accum-days').style.color = "#f87171"; } 
+            else { document.getElementById('accum-days').style.color = "#cbd5e1"; }
             document.getElementById('accum-days').innerText = desc;
         } else {
             zrBox.style.display = 'none';
@@ -554,31 +529,10 @@ js.window.python_entry = python_entry
 
     window.run_calc = function() {
         if(!pyReady) return;
-        document.getElementById('warning-container').innerHTML = '';
-        
         const dt = new Date(dateInput.value);
         const method = methodSelect.value;
-        const defaultLat = 39.9042, defaultLon = 116.4074;
-
-        if (navigator.geolocation) {
-            btn.innerText = "定位中..."; btn.disabled = true;
-            navigator.geolocation.getCurrentPosition(
-                (pos) => { 
-                    btn.innerText = "立即排盘"; btn.disabled = false; 
-                    window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), pos.coords.latitude, pos.coords.longitude, method); 
-                },
-                (err) => { 
-                    console.warn("Location error:", err);
-                    window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), defaultLat, defaultLon, method);
-                    btn.innerText = "立即排盘"; btn.disabled = false;
-                    window.show_warning("定位超时，已使用默认坐标 (北京)");
-                }, 
-                { timeout: 5000 }
-            );
-        } else {
-            window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), defaultLat, defaultLon, method);
-            window.show_warning("浏览器不支持定位，使用默认坐标");
-        }
+        window.python_entry(dt.getFullYear(), dt.getMonth()+1, dt.getDate(), dt.getHours(), dt.getMinutes(), userCoords.lat, userCoords.lon, method);
+        if(!hasRealLoc) window.show_warning("使用默认/旧坐标排盘 (后台正在定位中...)");
     }
 </script>
 </body>
